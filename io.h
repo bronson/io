@@ -11,6 +11,8 @@
  * into the code then select the most appropriate one at runtime.
  */
 
+#ifndef IO_H
+#define IO_H
 
 /// Flag, tells if we're interested in read events.
 #define IO_READ 0x01
@@ -18,6 +20,12 @@
 #define IO_WRITE 0x02
 /// Flag, tells if we're interested in exceptional events.
 #define IO_EXCEPT 0x04
+
+// reserved for use by applications
+#define IO_USER1 0x10
+#define IO_USER2 0x20
+#define IO_USER3 0x40
+#define IO_USER4 0x80
 
 
 /// Tells how many incoming connections we can handle at once
@@ -57,6 +65,7 @@ typedef struct io_atom {
 	int fd;         ///< The fd to watch for events.
 } io_atom;
 
+#define io_atom_init(io,ff,pp) ((io)->fd=(ff),(io)->proc=(pp))
 
 void io_init();     ///< Call this routine once when your code starts.  It prepares the io library for use.
 void io_exit();     ///< Call this routine once when your program terminates.  It just releases any resources allocated by io_init.
@@ -75,7 +84,11 @@ void io_exit();     ///< Call this routine once when your program terminates.  I
 int io_add(io_atom *atom, int flags);
 int io_set(io_atom *atom, int flags);   ///< Sets the io_atom::flags on the given atom to flags.
 int io_del(io_atom *atom);              ///< Removes the atom from the list 
+
 /// Waits for an event, then handles it.  Stops waiting if timeout occurs.
-/// Specify MAXINT for no timeout.
-int io_wait(int timeout);
+/// Specify MAXINT for no timeout.  The timeout is specified in ms.
+int io_wait(unsigned int timeout);
+void io_dispatch();
+
+#endif
 

@@ -8,6 +8,10 @@
 // This code is licensed under the same terms as Parrot itself.
 
 
+// TODO: should probably make thread-safe by passing a global
+// context everywhere?  This is pretty far in the future...
+
+
 #include <stdio.h>
 #include <errno.h>
 #include <values.h>
@@ -19,6 +23,7 @@
 
 static io_atom* connections[FD_SETSIZE];
 static fd_set fd_read, fd_write, fd_except;
+static fd_set gfd_read, gfd_write, gfd_except;
 static int max_fd;	// the highest-numbered filedescriptor in connections.
 
 
@@ -118,14 +123,20 @@ int io_del(io_atom *atom)
 }
 
 
-// Wait for events, then dispatch them.
-// timeout is in milliseconds.  MAXINT == forever.
+/** Waits for events.  See io_dispatch to dispatch the events.
+ * 
+ * @param timeout The maximum amount of time we should wait in
+ * milliseconds.  MAXINT is special-cased to mean forever.
+ *
+ * @returns the number of events to be dispatched or a negative
+ * number if there was an error.
+ */
 
-int io_wait(int timeout)
+int io_wait(unsigned int timeout)
 {
 	struct timeval tv;
 	struct timeval *tvp = &tv;
-	int num, i, max, flags;
+	int ret;
 
 	if(timeout == MAXINT) {
 		tvp = NULL;
@@ -134,35 +145,41 @@ int io_wait(int timeout)
 		tv.tv_usec = (timeout % 1000) * 1000;
 	}
 
-	fd_set rfds = fd_read;
-	fd_set wfds = fd_write;
-	fd_set efds = fd_except;
+	gfd_read = fd_read;
+	gfd_write = fd_write;
+	gfd_except = fd_except;
 
-	num = select(1+max_fd, &rfds, &wfds, &efds, tvp);
-	if(num < 0) {
-		perror("select");
-		return num;
-	}
+	do {
+		ret = select(1+max_fd, &gfd_read, &gfd_write, &gfd_except, tvp);
+	} while(ret < 0 && errno == EINTR);
+
+	return ret;
+}
+
+
+void io_dispatch()
+{
+	int i, max, flags;
 
     // Note that max_fd might change in the middle of this loop.
     // For instance, if an acceptor proc opens a new connection
     // and calls io_add, max_fd will take on the new value.  Therefore,
-    // we need to save the old value in a local temporary.
-	for(i=0, max=max_fd; i <= max; i++) {
+    // we need to loop on the value set at the start of the loop.
+
+	max = max_fd;
+	for(i=0; i <= max; i++) {
 		flags = 0;
-		if(FD_ISSET(i, &rfds)) flags |= IO_READ;
-		if(FD_ISSET(i, &wfds)) flags |= IO_WRITE;
-		if(FD_ISSET(i, &efds)) flags |= IO_EXCEPT;
+		if(FD_ISSET(i, &gfd_read)) flags |= IO_READ;
+		if(FD_ISSET(i, &gfd_write)) flags |= IO_WRITE;
+		if(FD_ISSET(i, &gfd_except)) flags |= IO_EXCEPT;
 		if(flags) {
 			if(connections[i]) {
 				(*connections[i]->proc)(connections[i], flags);
 			} else {
 				// what do we do -- event on an unknown connection?
-				printf("Got an event on an uknown connection %d!\n", i);
+				fprintf(stderr, "io_dispatch: got an event on an uknown connection %d!?\n", i);
 			}
 		}
 	}
-
-	return num;
 }
 

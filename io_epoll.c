@@ -11,8 +11,7 @@
 
 
 // This is not an upper-limit.  How can we get more insight into
-// exactly what this does?
-
+// exactly what this does?  Is it better to guess high or guess low?
 #define MAXFDS 10000
 
 
@@ -64,11 +63,13 @@ int io_add()
 
 void io_set(int fd, int flags)
 {
+	EPOLL_CTL_MOD
 }
 
 
 int io_del(int fd)
 {
+	EPOLL_CTL_DEL
 }
 
 
