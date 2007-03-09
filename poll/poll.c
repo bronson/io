@@ -4,6 +4,7 @@
 // Uses poll to satisfy gatekeeper's network I/O
 
 #include <sys/poll.h>
+#include "../atom.h"
 
 
 #define MAXFDS 

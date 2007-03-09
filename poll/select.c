@@ -16,7 +16,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "atom.h"
+#include "../atom.h"
 
 
 static io_atom* connections[FD_SETSIZE];

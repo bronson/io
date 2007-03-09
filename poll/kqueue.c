@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/event.h>
+#include "../atom.h"
 
 
 // TODO I'm not sure how to do except notification.

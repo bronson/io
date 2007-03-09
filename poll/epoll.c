@@ -9,6 +9,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <unistd.h>
+#include "../atom.h"
 
 
 // This is not an upper-limit.  How can we get more insight into
