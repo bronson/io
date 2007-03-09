@@ -1,0 +1,5 @@
+* create a poller directory, move all pollers into it.
+* NOTHING in the IO Atom library may use global data.  NOTHING.
+  It must be totally thread safe.
+  - I suppose this update could allow me to enable multiple polling types,
+    too, since we will now support multiple pollers per process.
