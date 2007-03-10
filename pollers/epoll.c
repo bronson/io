@@ -20,7 +20,7 @@
 int epfd;
 
 
-void io_init()
+void io_epoll_init()
 {
 	struct rlimit rl;
 
@@ -45,13 +45,13 @@ void io_init()
 }
 
 
-void io_exit()
+void io_epoll_exit()
 {
 	close(epfd);
 }
 
 
-int io_add()
+int io_epoll_add()
 {
 	int err;
 
@@ -63,19 +63,19 @@ int io_add()
 }
 
 
-void io_set(int fd, int flags)
+void io_epoll_set(int fd, int flags)
 {
 	EPOLL_CTL_MOD
 }
 
 
-int io_del(int fd)
+int io_epoll_del(int fd)
 {
 	EPOLL_CTL_DEL
 }
 
 
-void io_wait(int timeout)
+void io_epoll_wait(int timeout)
 {
 }
 

@@ -12,18 +12,18 @@
 struct pollfd ufds[MAXFDS];
 
 
-void io_init()
+void io_poll_init()
 {
 }
 
 
-void io_exit()
+void io_poll_exit()
 {
 	close(epfd);
 }
 
 
-void io_wait()
+void io_poll_wait()
 {
 	int nfds;
 

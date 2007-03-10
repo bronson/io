@@ -7,12 +7,15 @@
  * This is the generic Async I/O API.  It can be implemented using
  * select, poll, epoll, kqueue, aio, and /dev/poll (hopefully).
  *
+ * TODO: we currently push all OS requests down to the client.
+ * That's bad form.  We should figure out what the most common
+ * errors will be and try to make a generic way to handle them.
  * TODO: should make it so that we can compile every io method
  * into the code then select the most appropriate one at runtime.
  */
 
-#ifndef IO_H
-#define IO_H
+#ifndef IO_ATOM_H
+#define IO_ATOM_H
 
 /// Flag, tells if we're interested in read events.
 #define IO_READ 0x01
@@ -35,10 +38,10 @@
 
 /// Tells how many incoming connections we can handle at once
 /// (this is just the backlog parameter to listen)
+/// TODO: move me somewhere else
 #ifndef STD_LISTEN_SIZE
 #define STD_LISTEN_SIZE 128
 #endif
-
 
 struct io_atom;
 
@@ -102,38 +105,6 @@ typedef struct io_atom io_atom;
 
 #define io_atom_init(io,ff,pp) ((io)->fd=(ff),(io)->proc=(pp))
 
-void io_init();     ///< Call this routine once when your code starts.  It prepares the io library for use.
-void io_exit();     ///< Call this routine once when your program terminates.  It just releases any resources allocated by io_init.
-int io_exit_check();	///< Returns how many fds were leaked.  Also prints them to stderr.
-
-
-/** Adds the given io_atom to the current watch list.
- *
- * The io_atom must be pre-allocated and exist until you
- * call io_del() on it.
- *
- * @param atom The io_atom to add.
- * @param flags The events to watch for.  Note that there's no way to retrieve the flags once set.
- * @returns The appropriate error code or 0 if there was no error.
- */
-
-int io_add(io_atom *atom, int flags);		///< Adds the given atom to the list of files being watched.
-int io_enable(io_atom *atom, int flags);	///< Enables the given flag(s) without affecting any others.
-int io_disable(io_atom *atom, int flags);	///< Disables the given flag(s) without affecting any others.
-int io_set(io_atom *atom, int flags);   	///< Sets the io_atom::flags on the given atom to flags.
-int io_del(io_atom *atom);              	///< Removes the atom from the list 
-
-/// Waits for an event, then handles it.  Stops waiting if a timeout
-/// or a signal occurs.
-/// Specify MAXINT for no timeout.  The timeout is specified in ms.
-/// Returns the number of descriptors waiting for data on success,
-/// or a negative number on failure.
-int io_wait(unsigned int timeout);
-/// Dispatches the events returned by io_wait.  if io_wait returned 0
-/// (no events to process), io_dispatch does nothing.
-void io_dispatch();
-
-
 /** Reads data from a socket.
  *
  * This routine handles strange boundary cases like re-trying a read that
@@ -155,12 +126,6 @@ void io_dispatch();
 
 int io_read(io_atom *io, char *buf, size_t cnt, size_t *len);
 int io_write(io_atom *io, char *buf, size_t cnt, size_t *len);
-
-/** Closes an open socket.  The io_atom must have been set up previously using
- * one of io_socket_connect(), io_socket_listen(), or io_socket_accept().
- */
-
-void io_close(io_atom *io);
 
 
 /** Just a utility function.  This routine tries to parse an integer

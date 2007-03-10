@@ -1,4 +1,5 @@
-* NOTHING in the IO Atom library may use global data.  NOTHING.
-  It must be totally thread safe.
-  - I suppose this update could allow me to enable multiple polling types,
-    too, since we will now support multiple pollers per process.
+- I don't like the macros to convert io_del into io_select_del.  Anything better we can do?
+- need to try to regain type safety in multi.c:io_init.  get rid of all those void*!
+- write poll
+- write epoll
+- write multi

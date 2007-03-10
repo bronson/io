@@ -11,46 +11,43 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <values.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "../atom.h"
-
-
-static io_atom* connections[FD_SETSIZE];
-static fd_set fd_read, fd_write, fd_except;
-static fd_set gfd_read, gfd_write, gfd_except;
-static int max_fd;	// the highest-numbered filedescriptor in connections.
-static int cnt_fd;
+#include "selectop.h"
 
 
 // Pass the file descriptor that you'll be listening and accepting on.
 
-void io_init()
-{
-	FD_ZERO(&fd_read);
-	FD_ZERO(&fd_write);
-	FD_ZERO(&fd_except);
+int io_select_init(io_select_poller *poller)
+{	
+	FD_ZERO(&poller->fd_read);
+	FD_ZERO(&poller->fd_write);
+	FD_ZERO(&poller->fd_except);
+	
+	return 0;
 }
 
 
-void io_exit()
+int io_select_exit(io_select_poller *poller)
 {
-	// nothing to do
+	// nothing to do to prepare for exiting.
+	return 0;
 }
 
 
-int io_exit_check()
+int io_select_exit_check(io_select_poller *poller)
 {
 	int cnt = 0;
 	int i;
 
 	// Check that we haven't leaked any atoms.
 	for(i=0; i<FD_SETSIZE; i++) {
-		if(connections[i]) {
-			fprintf(stderr, "Leaked atom fd=%d proc=%08lX!\n", i, (long)connections[i]);
+		if(poller->connections[i]) {
+			fprintf(stderr, "Leaked atom fd=%d proc=%08lX!\n", i, (long)poller->connections[i]);
 			cnt += 1;
 		}
 	}
@@ -59,137 +56,139 @@ int io_exit_check()
 }
 
 
-static void install(int fd, int flags)
+static void install(io_select_poller *poller, int fd, int flags)
 {
 	if(flags & IO_READ) {
-		FD_SET(fd, &fd_read);
+		FD_SET(fd, &poller->fd_read);
 	} else {
-		FD_CLR(fd, &fd_read);
+		FD_CLR(fd, &poller->fd_read);
 	}
 
 	if(flags & IO_WRITE) {
-		FD_SET(fd, &fd_write);
+		FD_SET(fd, &poller->fd_write);
 	} else {
-		FD_CLR(fd, &fd_write);
+		FD_CLR(fd, &poller->fd_write);
 	}
 
 	if(flags & IO_EXCEPT) {
-		FD_SET(fd, &fd_except);
+		FD_SET(fd, &poller->fd_except);
 	} else {
-		FD_CLR(fd, &fd_except);
+		FD_CLR(fd, &poller->fd_except);
 	}
 }
 
 
-int io_add(io_atom *atom, int flags)
+int io_select_add(io_select_poller *poller, io_atom *atom, int flags)
 {
 	int fd = atom->fd;
 
 	if(fd < 0 || fd > FD_SETSIZE) {
 		return -ERANGE;
 	}
-	if(connections[fd]) {
+	if(poller->connections[fd]) {
 		return -EALREADY;
 	}
 
-	connections[fd] = atom;
-	install(fd, flags);
-	if(fd > max_fd) max_fd = fd;
-	
-	return 0;
-}
-
-
-int io_set(io_atom *atom, int flags)
-{
-	int fd = atom->fd;
-
-	if(fd < 0 || fd > FD_SETSIZE) {
-		return -ERANGE;
-	}
-	if(!connections[fd]) {
-		return -EALREADY;
-	}
-
-	install(fd, flags);
-
-	return 0;
-}
-
-
-int io_enable(io_atom *atom, int flags)
-{
-	if(atom->fd < 0 || atom->fd > FD_SETSIZE) {
-		return -ERANGE;
-	}
-	if(!connections[atom->fd]) {
-		return -EALREADY;
-	}
-
-	if(flags & IO_READ) {
-		FD_SET(atom->fd, &fd_read);
-	}
-
-	if(flags & IO_WRITE) {
-		FD_SET(atom->fd, &fd_write);
-	}
-
-	if(flags & IO_EXCEPT) {
-		FD_SET(atom->fd, &fd_except);
+	poller->connections[fd] = atom;
+	install(poller, fd, flags);
+	if(fd > poller->max_fd) {
+		poller->max_fd = fd;
 	}
 	
 	return 0;
 }
 
 
-int io_disable(io_atom *atom, int flags)
-{
-	if(atom->fd < 0 || atom->fd > FD_SETSIZE) {
-		return -ERANGE;
-	}
-	if(!connections[atom->fd]) {
-		return -EALREADY;
-	}
-
-	if(flags & IO_READ) {
-		FD_CLR(atom->fd, &fd_read);
-	}
-
-	if(flags & IO_WRITE) {
-		FD_CLR(atom->fd, &fd_write);
-	}
-
-	if(flags & IO_EXCEPT) {
-		FD_CLR(atom->fd, &fd_except);
-	}
-
-	return 0;
-}
-
-
-int io_del(io_atom *atom)
+int io_select_set(io_select_poller *poller, io_atom *atom, int flags)
 {
 	int fd = atom->fd;
 
 	if(fd < 0 || fd > FD_SETSIZE) {
 		return -ERANGE;
 	}
-	if(!connections[fd]) {
+	if(!poller->connections[fd]) {
 		return -EALREADY;
 	}
 
-	install(fd, 0);
-	connections[fd] = NULL;
+	install(poller, fd, flags);
+
+	return 0;
+}
+
+
+int io_select_enable(io_select_poller *poller, io_atom *atom, int flags)
+{
+	if(atom->fd < 0 || atom->fd > FD_SETSIZE) {
+		return -ERANGE;
+	}
+	if(!poller->connections[atom->fd]) {
+		return -EALREADY;
+	}
+
+	if(flags & IO_READ) {
+		FD_SET(atom->fd, &poller->fd_read);
+	}
+
+	if(flags & IO_WRITE) {
+		FD_SET(atom->fd, &poller->fd_write);
+	}
+
+	if(flags & IO_EXCEPT) {
+		FD_SET(atom->fd, &poller->fd_except);
+	}
+	
+	return 0;
+}
+
+
+int io_select_disable(io_select_poller *poller, io_atom *atom, int flags)
+{
+	if(atom->fd < 0 || atom->fd > FD_SETSIZE) {
+		return -ERANGE;
+	}
+	if(!poller->connections[atom->fd]) {
+		return -EALREADY;
+	}
+
+	if(flags & IO_READ) {
+		FD_CLR(atom->fd, &poller->fd_read);
+	}
+
+	if(flags & IO_WRITE) {
+		FD_CLR(atom->fd, &poller->fd_write);
+	}
+
+	if(flags & IO_EXCEPT) {
+		FD_CLR(atom->fd, &poller->fd_except);
+	}
+
+	return 0;
+}
+
+
+int io_select_del(io_select_poller *poller, io_atom *atom)
+{
+	int fd = atom->fd;
+
+	if(fd < 0 || fd > FD_SETSIZE) {
+		return -ERANGE;
+	}
+	if(!poller->connections[fd]) {
+		return -EALREADY;
+	}
+
+	install(poller, fd, 0);
+	poller->connections[fd] = NULL;
 
     // This io_del is probably during an io_process.  Therefore,
     // we need to make sure that we don't later report an event
     // on a deleted io_atom.
-    FD_CLR(fd, &gfd_read);
-    FD_CLR(fd, &gfd_write);
-    FD_CLR(fd, &gfd_except);
+    FD_CLR(fd, &poller->gfd_read);
+    FD_CLR(fd, &poller->gfd_write);
+    FD_CLR(fd, &poller->gfd_except);
 
-	while((max_fd >= 0) && (connections[max_fd] == NULL))  {
-		max_fd -= 1;
+	while((poller->max_fd >= 0) && (poller->connections[poller->max_fd] == NULL))  {
+		poller->max_fd -= 1;
 	}
 
 	return 0;
@@ -207,7 +206,7 @@ int io_del(io_atom *atom)
  * Also, we return 0 if the call returned due to a timeout.
  */
 
-int io_wait(unsigned int timeout)
+int io_select_wait(io_select_poller *poller, unsigned int timeout)
 {
 	struct timeval tv;
 	struct timeval *tvp = &tv;
@@ -219,23 +218,23 @@ int io_wait(unsigned int timeout)
 		tv.tv_usec = (timeout % 1000) * 1000;
 	}
 
-	gfd_read = fd_read;
-	gfd_write = fd_write;
-	gfd_except = fd_except;
+	poller->gfd_read = poller->fd_read;
+	poller->gfd_write = poller->fd_write;
+	poller->gfd_except = poller->fd_except;
 
-	cnt_fd = select(1+max_fd, &gfd_read, &gfd_write, &gfd_except, tvp);
-    if(cnt_fd < 0) {
+	poller->cnt_fd = select(1+poller->max_fd, &poller->gfd_read, &poller->gfd_write, &poller->gfd_except, tvp);
+    if(poller->cnt_fd < 0) {
         // it's not an error if we were interrupted.
         if(errno == EINTR) {
-            cnt_fd = 0;
+            poller->cnt_fd = 0;
         }
     }
 
-    return cnt_fd;
+    return poller->cnt_fd;
 }
 
 
-void io_dispatch()
+int io_select_dispatch(io_select_poller *poller)
 {
 	int i, max, flags;
 
@@ -244,16 +243,16 @@ void io_dispatch()
     // and calls io_add, max_fd will take on the new value.  Therefore,
     // we need to loop on the value set at the start of the loop.
 
-    if(cnt_fd > 0) {
-        max = max_fd;
+    if(poller->cnt_fd > 0) {
+        max = poller->max_fd;
         for(i=0; i <= max; i++) {
             flags = 0;
-            if(FD_ISSET(i, &gfd_read)) flags |= IO_READ;
-            if(FD_ISSET(i, &gfd_write)) flags |= IO_WRITE;
-            if(FD_ISSET(i, &gfd_except)) flags |= IO_EXCEPT;
+            if(FD_ISSET(i, &poller->gfd_read)) flags |= IO_READ;
+            if(FD_ISSET(i, &poller->gfd_write)) flags |= IO_WRITE;
+            if(FD_ISSET(i, &poller->gfd_except)) flags |= IO_EXCEPT;
             if(flags) {
-                if(connections[i]) {
-                    (*connections[i]->proc)(connections[i], flags);
+                if(poller->connections[i]) {
+                    (*poller->connections[i]->proc)(poller->connections[i], flags);
                 } else {
                     // what do we do -- event on an unknown connection?
                     fprintf(stderr, "io_dispatch: got an event on an uknown connection %d!?\n", i);
@@ -261,5 +260,7 @@ void io_dispatch()
             }
         }
 	}
+    
+    return 0;
 }
 

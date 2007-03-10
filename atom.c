@@ -3,7 +3,7 @@
 // 22 Feb 2006
 
 
-// Some utility functions that are common to all IO Atom pollers.
+// Some utility functions that are common to all IO Atom pollers
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -107,17 +107,6 @@ int io_write(io_atom *io, char *buf, size_t cnt, size_t *wrlen)
 
     // nothing was written but there was no error??
     return 0;
-}
-
-
-/** Removes the atom from polling and closes its file descriptor.
- */
-
-void io_close(io_atom *io)
-{
-	io_del(io);
-	close(io->fd);
-	io->fd = -1;
 }
 
 

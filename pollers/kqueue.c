@@ -33,7 +33,7 @@ int max_changes = 128;
 
 
 
-void io_init()
+void io_kqueue_init()
 {
 	kqfd = kqueue();
 	if(kqfd < 0) {
@@ -45,7 +45,7 @@ void io_init()
 }
 
 
-void io_exit()
+void io_kqueue_exit()
 {
 	free(changes);
 	close(kqfd);
@@ -71,7 +71,7 @@ static void newchange(int filter, int flags, io_atom *atom)
 
 
 
-int io_add(io_atom *atom, int flags)
+int io_kqueue_add(io_atom *atom, int flags)
 {
 	if(flags & IO_READ) {
 		newchange(EVFILT_READ, EV_ADD | EV_ENABLE, atom);
@@ -82,7 +82,7 @@ int io_add(io_atom *atom, int flags)
 }
 
 
-void io_set(io_atom *atom, int flags)
+void io_kqueue_set(io_atom *atom, int flags)
 {
 	if(flags & IO_READ) {
 		newchange(EVFILT_READ, EV_ADD | EV_ENABLE, atom);
@@ -97,7 +97,7 @@ void io_set(io_atom *atom, int flags)
 }
 
 
-int io_del(io_atom *atom)
+int io_kqueue_del(io_atom *atom)
 {
 	if(flags & IO_READ) {
 		newchange(EVFILT_READ, EV_DELETE, atom);
@@ -108,7 +108,7 @@ int io_del(io_atom *atom)
 }
 
 
-int io_wait(int timeout)
+int io_kqueue_wait(int timeout)
 {
 	struct kevent ev[MAX_EVENTS_HANDLED];
 	struct timeval tv;

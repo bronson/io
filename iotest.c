@@ -13,22 +13,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <values.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
 
-#include "atom.h"
+#if MULTI
+#include "pollers/multi.h"
+#else
+#include "pollers/select.h"
+#endif
+
 
 #define PORT 21314
 
 
+io_poller poller;
 io_atom g_accepter;   // the listening socket
 char g_char = 'A';
 char g_readbuf[1024];
@@ -61,6 +65,15 @@ int set_nonblock(int sd)
 }
 
 
+void connection_close(connection *conn)
+{
+	io_del(&poller, &conn->io);
+	close(conn->io.fd);
+	conn->io.fd = -1;
+	free(conn);
+}
+
+
 void connection_proc(io_atom *ioa, int flags)
 {
 	connection *conn = (connection*)ioa;
@@ -77,9 +90,8 @@ void connection_proc(io_atom *ioa, int flags)
             conn->chars_processed += len;
         } else if(len == 0) {
             // A 0-length read means remote has closed normally
-			printf("connection closed on fd %d\n", conn->io.fd);
-			io_close(&conn->io);
-			free(conn);
+			printf("connection closed by remote on fd %d\n", conn->io.fd);
+			connection_close(conn);
 			return;
         } else {
             // handle an error on the socket
@@ -89,8 +101,7 @@ void connection_proc(io_atom *ioa, int flags)
                 // with glibc EAGAIN==EWOULDBLOCK so this is probably dead code
             } else {
 				printf("read error %s on fd %d\n", strerror(errno), conn->io.fd);
-				io_close(&conn->io);
-				free(conn);
+				connection_close(conn);
                 return;
             }
         }
@@ -105,8 +116,7 @@ void connection_proc(io_atom *ioa, int flags)
         // I think this is also used for OOB.
         // recv (fd1, &c, 1, MSG_OOB);
 		printf("exception on fd %d\n", conn->io.fd);
-		io_close(&conn->io);
-		free(conn);
+		connection_close(conn);
 		return;
     }
 }
@@ -155,7 +165,7 @@ void accept_proc(io_atom *ioa, int flags)
 	conn->io.fd = sd;
 	conn->io.proc = connection_proc;
 
-	if(io_add(&conn->io, IO_READ) < 0) {
+	if(io_add(&poller, &conn->io, IO_READ) < 0) {
 		perror("io_add_main");
 		close(sd);
 		exit(1);
@@ -171,12 +181,12 @@ void event_loop()
 	int cnt;
 	
 	for(;;) {
-		cnt = io_wait(MAXINT);
+		cnt = io_wait(&poller, MAXINT);
 		if(cnt < 0) {
 			perror("io_wait");
 		}
 		if(cnt > 0) {
-			io_dispatch();
+			io_dispatch(&poller);
 		}
 	}
 }
@@ -186,9 +196,8 @@ int main(int argc, char **argv)
 {
 	int sd;
 	struct sockaddr_in sin;
-
-	io_init();
-
+	
+	io_init(&poller);
 	printf("Opening listening socket...\n");
 
 	if((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -222,7 +231,7 @@ int main(int argc, char **argv)
 	g_accepter.fd = sd;
 	g_accepter.proc = accept_proc;
 
-	if(io_add(&g_accepter, IO_READ) < 0) {
+	if(io_add(&poller, &g_accepter, IO_READ) < 0) {
 		perror("io_add_main");
 		close(sd);
 		exit(1);
@@ -231,7 +240,7 @@ int main(int argc, char **argv)
 	printf("Listening on port %d, fd %d.\n", PORT, g_accepter.fd);
 	event_loop();
 
-	io_exit();
+	io_exit(&poller);
 
 	return 0;
 }

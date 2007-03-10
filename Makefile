@@ -7,8 +7,11 @@ COPTS=-g -Wall -Werror
 
 all: iotest
 
-iotest: iotest.c atom.c atom.h pollers/select.c
+iotest: iotest.c atom.c atom.h pollers/select.c pollers/select.h pollers/selectop.h
 	$(CC) $(COPTS) iotest.c atom.c pollers/select.c -o iotest
-	
+
+mtest: iotest.c atom.c atom.h pollers/select.c pollers/selectop.h pollers/multi.c pollers/multi.h
+	$(CC) $(COPTS) iotest.c atom.c pollers/select.c pollers/multi.c -DMULTI=1 -o mtest
+
 clean:
-	rm -f iotest
+	rm -f iotest mtest
