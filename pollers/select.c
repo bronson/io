@@ -17,7 +17,8 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "selectop.h"
+
+#include "select.h"
 
 
 // Pass the file descriptor that you'll be listening and accepting on.
@@ -180,7 +181,7 @@ int io_select_del(io_select_poller *poller, io_atom *atom)
 	install(poller, fd, 0);
 	poller->connections[fd] = NULL;
 
-    // This io_del is probably during an io_process.  Therefore,
+    // This io_delete is probably during an io_process.  Therefore,
     // we need to make sure that we don't later report an event
     // on a deleted io_atom.
     FD_CLR(fd, &poller->gfd_read);
