@@ -30,7 +30,6 @@
 
 io_poller poller;
 io_atom accepter;   // the listening socket
-char readbuf[1024];
 
 
 typedef struct {
@@ -51,6 +50,7 @@ void connection_close(connection *conn)
 
 void connection_proc(io_atom *ioa, int flags)
 {
+	char readbuf[1024];
 	connection *conn = (connection*)ioa;
     int fd = conn->io.fd;
     int len;
