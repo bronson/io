@@ -6,11 +6,11 @@
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include "io.h"
+#include "poller.h"
 
 
 struct socket_addr {
-	struct in_addr addr;	///< packed address (use inet_ntoa) or htonl(INADDR_LOOPBACK) to specify the loopback device.
+	struct in_addr addr;	///< packed address in network order (use inet_ntoa), htonl(INADDR_ANY) to listen on all addresses, or htonl(INADDR_LOOPBACK) to specify the loopback device.
 	int port;				///< port number in host order (regular int)
 };
 typedef struct socket_addr socket_addr;
@@ -28,7 +28,7 @@ typedef struct socket_addr socket_addr;
  * do we?
  */
 
-int io_socket_connect(io_atom *io, io_proc proc, socket_addr remote, int flags);
+int io_socket_connect(io_poller *poller, io_atom *io, io_proc proc, socket_addr remote, int flags);
 
 
 /** Just a lower-level version of io_socket_connect.  Returns the fd
@@ -51,7 +51,7 @@ int io_socket_connect_fd(socket_addr remote);
  *                 system.  Pass NULL if you don't care.
  */
 
-int io_socket_accept(io_atom *io, io_proc proc, int flags, io_atom *listener, socket_addr *remote);
+int io_socket_accept(io_poller *poller, io_atom *io, io_proc proc, int flags, io_atom *listener, socket_addr *remote);
 
 
 /** Sets up a socket to listen for incoming connections.
@@ -65,7 +65,7 @@ int io_socket_accept(io_atom *io, io_proc proc, int flags, io_atom *listener, so
  * 		to get the
  */
 
-int io_socket_listen(io_atom *io, io_proc proc, socket_addr local);
+int io_socket_listen(io_poller *poller, io_atom *io, io_proc proc, socket_addr local);
 
 
 

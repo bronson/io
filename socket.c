@@ -98,8 +98,8 @@ bail:
 
 /** Creates an outgoing connection.
  *
- * @param io An uninitialized io_atom.  This call will fill it all in.
- * @param addr The address you want to connect to.
+ * @param io A totally uninitialized io_atom.  This call will fill everything in.
+ * @param remote The address you want to connect to.
  * @param port The port you want to connect to.
  * @param io_proc The io_proc that you want this atom to use.
  * @param flags The flags that the atom should have initially.
@@ -110,7 +110,7 @@ bail:
  * If there was an error, you should find the reason in strerror.
  */
 
-int io_socket_connect(io_atom *io, io_proc proc, socket_addr remote, int flags)
+int io_socket_connect(io_poller *poller, io_atom *io, io_proc proc, socket_addr remote, int flags)
 {   
 	int err;
 
@@ -120,7 +120,7 @@ int io_socket_connect(io_atom *io, io_proc proc, socket_addr remote, int flags)
 	}
 
 	io->proc = proc;
-    err = io_add(io, flags);
+	err = io_add(poller, io, flags);
     if(err < 0) {
 		goto bail;
     }
@@ -154,7 +154,7 @@ bail:
  * there was an error.
  */
 
-int io_socket_accept(io_atom *io, io_proc proc, int flags, io_atom *listener, socket_addr *remote)
+int io_socket_accept(io_poller *poller, io_atom *io, io_proc proc, int flags, io_atom *listener, socket_addr *remote)
 {
     struct sockaddr_in pin;
     socklen_t plen = sizeof(pin);
@@ -183,8 +183,8 @@ int io_socket_accept(io_atom *io, io_proc proc, int flags, io_atom *listener, so
     }
 
 	io->proc = proc;
-    err = io_add(io, flags);
-    if(err < 0) {
+    err = io_add(poller, io, flags);
+	if(err < 0) {
         close(io->fd);
         return -1;
     }
@@ -207,11 +207,9 @@ int io_socket_accept(io_atom *io, io_proc proc, int flags, io_atom *listener, so
  * fd or -1 if there was an error.
  *
  * @returns the new fd.
- *
- * Call io_socket_close() to stop listening on the socket.
  */
 
-int io_socket_listen(io_atom *io, io_proc proc, socket_addr local)
+int io_socket_listen(io_poller *poller, io_atom *io, io_proc proc, socket_addr local)
 {
     struct sockaddr_in sin;
 
@@ -242,7 +240,7 @@ int io_socket_listen(io_atom *io, io_proc proc, socket_addr local)
     }
 
     io->proc = proc;
-    if(io_add(io, IO_READ) < 0) {
+    if(io_add(poller, io, IO_READ) < 0) {
         close(io->fd);
 		return -1;
     }
