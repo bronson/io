@@ -36,14 +36,8 @@
 #define IO_USER4 0x80
 
 
-/// Tells how many incoming connections we can handle at once
-/// (this is just the backlog parameter to listen)
-/// TODO: move me somewhere else
-#ifndef STD_LISTEN_SIZE
-#define STD_LISTEN_SIZE 128
-#endif
+struct io_atom;  // forward declaration
 
-struct io_atom;
 
 /**
  * This routine is called whenever there is action on an atom.
@@ -51,7 +45,9 @@ struct io_atom;
  * @param atom The atom that the proc is being called on.
  * @param flags What sort of action is happening.
  */
+
 typedef void (*io_proc)(struct io_atom *atom, int flags);
+
 
 /**
  * Not all data structures are lucky enough to be able to place the
@@ -97,13 +93,22 @@ typedef void (*io_proc)(struct io_atom *atom, int flags);
  * with its related data structures than off in an io-specific
  * chunk of memory.
  */
+
 struct io_atom {
 	io_proc proc;   ///< The function to call when there is an event on fd.
 	int fd;         ///< The fd to watch for events.
 };
 typedef struct io_atom io_atom;
 
+
+/** Ensures that you've fully initialized an io_atom.
+ * 
+ * er...  There are now so few fields in an io_atom that just
+ * about every utility routine inits the atom for you.  This
+ * macro should probably go away...?
+ */
 #define io_atom_init(io,ff,pp) ((io)->fd=(ff),(io)->proc=(pp))
+
 
 /** Reads data from a socket.
  *
@@ -125,6 +130,11 @@ typedef struct io_atom io_atom;
  */
 
 int io_read(io_atom *io, char *buf, size_t cnt, size_t *len);
+
+
+/** Writes data to a socket
+ */
+
 int io_write(io_atom *io, char *buf, size_t cnt, size_t *len);
 
 

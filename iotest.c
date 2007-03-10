@@ -23,8 +23,13 @@
 
 #include "poller.h"
 
-
+// The port we should listen on
 #define PORT 21314
+
+// Sometimes this is defined for you, sometimes not.
+#ifndef STD_LISTEN_SIZE
+#define STD_LISTEN_SIZE 128
+#endif
 
 
 io_poller poller;

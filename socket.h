@@ -16,6 +16,13 @@ struct socket_addr {
 typedef struct socket_addr socket_addr;
 
 
+/// Tells how many incoming connections we can handle at once
+/// (this is just the backlog parameter to listen; it's hardly
+/// even relevant anymore on Linux).
+#ifndef STD_LISTEN_SIZE
+#define STD_LISTEN_SIZE 128
+#endif
+
 
 /** Sets up an outgoing connection
  *
