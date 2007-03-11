@@ -15,6 +15,8 @@
 #include "../atom.h"
 
 
+struct io_poller;
+
 struct io_select_poller {
 	io_atom* connections[FD_SETSIZE];
 	fd_set fd_read, fd_write, fd_except;
@@ -42,5 +44,5 @@ int io_select_enable(io_select_poller *poller, io_atom *atom, int flags);
 int io_select_disable(io_select_poller *poller, io_atom *atom, int flags);
 int io_select_remove(io_select_poller *poller, io_atom *atom);
 int io_select_wait(io_select_poller *poller, unsigned int timeout);
-int io_select_dispatch(io_select_poller *poller);
+int io_select_dispatch(struct io_poller *poller);
 

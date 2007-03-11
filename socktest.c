@@ -48,7 +48,7 @@ void connection_close(connection *conn)
 }
 
 
-void connection_proc(io_atom *ioa, int flags)
+void connection_proc(io_poller *pp, io_atom *ioa, int flags)
 {
 	char readbuf[1024];
 	connection *conn = (connection*)ioa;
@@ -97,7 +97,7 @@ void connection_proc(io_atom *ioa, int flags)
 }
 
 
-void accept_proc(io_atom *ioa, int flags)
+void accept_proc(io_poller *pp, io_atom *ioa, int flags)
 {
 	connection *conn;
 	socket_addr remote;
@@ -123,7 +123,7 @@ void accept_proc(io_atom *ioa, int flags)
 
 int main(int argc, char **argv)
 {
-	const socket_addr addr = { { htonl(INADDR_ANY) }, 21314 };
+	const socket_addr addr = { { htonl(INADDR_ANY) }, PORT };
 
 	io_poller_init(&poller);
 	printf("Opening listening socket...\n");

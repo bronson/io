@@ -45,5 +45,5 @@ int io_poller_init(io_poller *poller);
 #define io_disable(a,b,c)	(*(a)->funcs.disable)((io_poller*)&(a)->poller_data,b,c)
 #define io_set(a,b,c)		(*(a)->funcs.set)((io_poller*)&(a)->poller_data,b,c)
 #define io_wait(a,b)		(*(a)->funcs.wait)((io_poller*)&(a)->poller_data,b)
-#define io_dispatch(a)		(*(a)->funcs.dispatch)((io_poller*)&(a)->poller_data)
+#define io_dispatch(a)		(*(a)->funcs.dispatch)(a)
 

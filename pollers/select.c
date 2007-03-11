@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "select.h"
+#include "../poller.h"
 
 
 // Pass the file descriptor that you'll be listening and accepting on.
@@ -235,9 +235,10 @@ int io_select_wait(io_select_poller *poller, unsigned int timeout)
 }
 
 
-int io_select_dispatch(io_select_poller *poller)
+int io_select_dispatch(struct io_poller *base_poller)
 {
 	int i, max, flags;
+	io_select_poller *poller = &base_poller->poller_data.select;
 
     // Note that max_fd might change in the middle of this loop.
     // For instance, if an acceptor proc opens a new connection
@@ -253,7 +254,7 @@ int io_select_dispatch(io_select_poller *poller)
             if(FD_ISSET(i, &poller->gfd_except)) flags |= IO_EXCEPT;
             if(flags) {
                 if(poller->connections[i]) {
-                    (*poller->connections[i]->proc)(poller->connections[i], flags);
+                    (*poller->connections[i]->proc)(base_poller, poller->connections[i], flags);
                 } else {
                     // what do we do -- event on an unknown connection?
                     fprintf(stderr, "io_dispatch: got an event on an uknown connection %d!?\n", i);

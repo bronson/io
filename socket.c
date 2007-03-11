@@ -252,7 +252,7 @@ int io_socket_listen(io_poller *poller, io_atom *io, io_proc proc, socket_addr l
 /** Parses a string to an address suitable for use with io_socket.
  *  Accepts "1.1.1.1:22", "1.1.1.1" (default port), and "22" (default
  *  address).  Also accepts "host:22" and "host".  If a hostname consists
- *  of all numbers (that's an error, right?) the it will be interpreted as
+ *  of all numbers (talk about archaic) the it will be interpreted as
  *  a port unless you specify it as "222:".  Uses gethostbyname.
  *
  *  If the string doesn't specify either an address or a port then the
@@ -264,7 +264,7 @@ int io_socket_listen(io_poller *poller, io_atom *io, io_proc proc, socket_addr l
 
 char* io_socket_parse(const char *spec, socket_addr *sock)
 {
-	char buf[256];
+	char buf[512];
 	const char *colon;
 	int i;
 

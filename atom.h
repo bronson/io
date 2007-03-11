@@ -36,7 +36,8 @@
 #define IO_USER4 0x80
 
 
-struct io_atom;  // forward declaration
+struct io_atom;  	// forward decl
+struct io_poller;	// forward decl
 
 
 /**
@@ -46,7 +47,7 @@ struct io_atom;  // forward declaration
  * @param flags What sort of action is happening.
  */
 
-typedef void (*io_proc)(struct io_atom *atom, int flags);
+typedef void (*io_proc)(struct io_poller *poller, struct io_atom *atom, int flags);
 
 
 /**
@@ -69,11 +70,10 @@ typedef void (*io_proc)(struct io_atom *atom, int flags);
  * The following line would resolve "io_atom *ap" into a pointer
  * to struct test.
  *
- *   io_resolve(ap, struct test, a);
- *
+ *   struct test *test = io_resolve_parent(ap, struct test, a);
  */
 
-#define io_parent_type(ptr, type, member) \
+#define io_resolve_parent(ptr, type, member) \
     ((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
 
 

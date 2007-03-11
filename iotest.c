@@ -74,7 +74,7 @@ void connection_close(connection *conn)
 }
 
 
-void connection_proc(io_atom *ioa, int flags)
+void connection_proc(io_poller *pp, io_atom *ioa, int flags)
 {
 	connection *conn = (connection*)ioa;
     int fd = conn->io.fd;
@@ -122,7 +122,7 @@ void connection_proc(io_atom *ioa, int flags)
 }
 
 
-void accept_proc(io_atom *ioa, int flags)
+void accept_proc(io_poller *pp, io_atom *ioa, int flags)
 {
     connection *conn;
     struct sockaddr_in pin;
