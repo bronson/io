@@ -50,8 +50,8 @@ void connection_close(connection *conn)
 
 void connection_proc(io_poller *pp, io_atom *ioa, int flags)
 {
+	connection *conn = io_resolve_parent(ioa, connection, io);
 	char readbuf[1024];
-	connection *conn = (connection*)ioa;
     int fd = conn->io.fd;
     int len;
         

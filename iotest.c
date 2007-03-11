@@ -76,7 +76,7 @@ void connection_close(connection *conn)
 
 void connection_proc(io_poller *pp, io_atom *ioa, int flags)
 {
-	connection *conn = (connection*)ioa;
+	connection *conn = io_resolve_parent(ioa, connection, io);
     int fd = conn->io.fd;
     int len;
         
