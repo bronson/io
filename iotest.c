@@ -67,7 +67,7 @@ int set_nonblock(int sd)
 
 void connection_close(connection *conn)
 {
-	io_delete(&poller, &conn->io);
+	io_remove(&poller, &conn->io);
 	close(conn->io.fd);
 	conn->io.fd = -1;
 	free(conn);

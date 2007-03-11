@@ -41,7 +41,7 @@ typedef struct {
 
 void connection_close(connection *conn)
 {
-	io_delete(&poller, &conn->io);
+	io_remove(&poller, &conn->io);
 	close(conn->io.fd);
 	conn->io.fd = -1;
 	free(conn);
@@ -142,7 +142,7 @@ int main(int argc, char **argv)
 		io_dispatch(&poller);
 	}
 
-	io_delete(&poller, &accepter);
+	io_remove(&poller, &accepter);
 	io_exit(&poller);
 
 	return 0;

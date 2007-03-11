@@ -13,10 +13,10 @@ int io_init(io_poller *poller)
 	poller->funcs.exit = (void*)io_select_exit;
 	poller->funcs.exit_check = (void*)io_select_exit_check;
 	poller->funcs.add = (void*)io_select_add;
+	poller->funcs.remove = (void*)io_select_remove;
 	poller->funcs.enable = (void*)io_select_enable;
 	poller->funcs.disable = (void*)io_select_disable;
 	poller->funcs.set = (void*)io_select_set;
-	poller->funcs.del = (void*)io_select_del;
 	poller->funcs.wait = (void*)io_select_wait;
 	poller->funcs.dispatch = (void*)io_select_dispatch;
 	

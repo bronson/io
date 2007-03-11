@@ -167,7 +167,7 @@ int io_select_disable(io_select_poller *poller, io_atom *atom, int flags)
 }
 
 
-int io_select_del(io_select_poller *poller, io_atom *atom)
+int io_select_remove(io_select_poller *poller, io_atom *atom)
 {
 	int fd = atom->fd;
 
