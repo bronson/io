@@ -33,14 +33,14 @@ int io_select_init(io_select_poller *poller)
 }
 
 
-int io_select_exit(io_select_poller *poller)
+int io_select_poller_dispose(io_select_poller *poller)
 {
 	// nothing to do to prepare for exiting.
 	return 0;
 }
 
 
-int io_select_exit_check(io_select_poller *poller)
+int io_select_fd_check(io_select_poller *poller)
 {
 	int cnt = 0;
 	int i;

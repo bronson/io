@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 {
 	const socket_addr addr = { { htonl(INADDR_ANY) }, 21314 };
 
-	io_init(&poller);
+	io_poller_init(&poller);
 	printf("Opening listening socket...\n");
 
 	if(io_socket_listen(&poller, &accepter, accept_proc, addr) < 0) {
@@ -143,7 +143,7 @@ int main(int argc, char **argv)
 	}
 
 	io_remove(&poller, &accepter);
-	io_exit(&poller);
+	io_poller_dispose(&poller);
 
 	return 0;
 }

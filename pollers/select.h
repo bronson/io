@@ -34,8 +34,8 @@ typedef struct io_select_poller io_select_poller;
 
 
 int io_select_init(io_select_poller *poller);
-int io_select_exit(io_select_poller *poller);
-int io_select_exit_check(io_select_poller *poller);
+int io_select_poller_dispose(io_select_poller *poller);
+int io_select_fd_check(io_select_poller *poller);
 int io_select_add(io_select_poller *poller, io_atom *atom, int flags);
 int io_select_set(io_select_poller *poller, io_atom *atom, int flags);
 int io_select_enable(io_select_poller *poller, io_atom *atom, int flags);

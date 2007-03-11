@@ -4,6 +4,7 @@
 - write poll
 - write epoll
 - write multi
+- turn io_fd_check into io_get_next_atom.  Need some way to query the atoms that are still in use.  Should also return atom's read status.
 
 * Need to make multi-poller the default.  Otherwise the files get hard to compile.
   (i.e., how do I tell socket.c what poller we're using?  It's possible dirty.)

@@ -197,7 +197,7 @@ int main(int argc, char **argv)
 	int sd;
 	struct sockaddr_in sin;
 	
-	io_init(&poller);
+	io_poller_init(&poller);
 	printf("Opening listening socket...\n");
 
 	if((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -240,7 +240,7 @@ int main(int argc, char **argv)
 	printf("Listening on port %d, fd %d.\n", PORT, g_accepter.fd);
 	event_loop();
 
-	io_exit(&poller);
+	io_poller_dispose(&poller);
 
 	return 0;
 }

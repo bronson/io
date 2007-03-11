@@ -15,8 +15,8 @@ struct io_poller;
 // Believe you me, this table is *almost* enough to drive me to port this to C++.
 // (biggest problem with doing that is having to babysit C++'s memory management)
 struct poller_funcs {
-	int (*exit)(struct io_poller *poller);
-	int (*exit_check)(struct io_poller *poller);
+	int (*dispose)(struct io_poller *poller);
+	int (*fd_check)(struct io_poller *poller);
 	int (*add)(struct io_poller *poller, io_atom *atom, int flags);
 	int (*remove)(struct io_poller *poller, io_atom *atom);	
 	int (*enable)(struct io_poller *poller, io_atom *atom, int flags);
@@ -36,9 +36,9 @@ struct io_poller {
 typedef struct io_poller io_poller;
 
 
-int io_init(io_poller *poller);
-#define io_exit(a) 			(*(a)->funcs.exit)((io_poller*)&(a)->poller_data)
-#define io_exit_check(a)	(*(a)->funcs.exit_check)((io_poller*)&(a)->poller_data)
+int io_poller_init(io_poller *poller);
+#define io_poller_dispose(a) (*(a)->funcs.dispose)((io_poller*)&(a)->poller_data)
+#define io_fd_check(a)		(*(a)->funcs.fd_check)((io_poller*)&(a)->poller_data)
 #define io_add(a,b,c)		(*(a)->funcs.add)((io_poller*)&(a)->poller_data,b,c)
 #define io_remove(a,b)		(*(a)->funcs.remove)((io_poller*)&(a)->poller_data,b)
 #define io_enable(a,b,c)	(*(a)->funcs.enable)((io_poller*)&(a)->poller_data,b,c)

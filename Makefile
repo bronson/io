@@ -5,7 +5,7 @@
 
 COPTS=-g -Wall -Werror
 
-all: iotest
+all: iotest socktest
 
 iotest: iotest.c atom.c atom.h poller.c poller.h pollers/select.c pollers/select.h
 	$(CC) $(COPTS) iotest.c atom.c poller.c pollers/select.c -o iotest
@@ -14,4 +14,4 @@ socktest: socktest.c atom.c atom.h poller.c poller.h socket.c socket.h pollers/s
 	$(CC) $(COPTS) socktest.c atom.c poller.c socket.c pollers/select.c -o socktest
 
 clean:
-	rm -f iotest
+	rm -f iotest socktest
