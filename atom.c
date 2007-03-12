@@ -17,14 +17,20 @@
  * @param buf the buffer to fill with data
  * @param cnt the number of bytes to read
  * @param readlen returns the number of bytes you need to process.
- * If readlen is nonzero, then error is guaranteed to be 0.
+ * 	If there was an error then readlen will always be zero.
+ * 	If readlen > 0 is returned, no error was reported.
  *
  * @returns 0 on success, or the error code in errno if there was
  * an error.  If there was an error but errno doesn't say what it was
- * then -1 is returned.  A return value of EPIPE means you hit EOF
- * (file) or the remote peer closed its connection (pipe, socket).
- * If the remote reset its connection, we return EPIPE as well
- * (because, like close, this indicates that the remote has disappeared).
+ * then -1 is returned.
+ * EPIPE: means you hit EOF (file) or the remote peer closed its
+ *    connection normally (pipe, socket).
+ * ECONNRESET: the connection was reset.  Maybe the peer disappeared?
+ *
+ * This routine should be thread safe even though it appears to use the
+ * global variable ::errno.  On a system with a threads
+ * library, errno should expand into a funtion that returns a per-thread
+ * errno value.
  */
 
 int io_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
@@ -54,14 +60,6 @@ int io_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
         return 0;
     } 
 
-    // Not sure this is a good idea... ECONNRESET means that the
-    // peer has closed the connection (probably by suddenly losing
-    // power rather than simply closing the socket) so we'll treat
-    // it the same as the remote shutting down.
-    if(errno == ECONNRESET) {
-        return EPIPE;
-    }
-
     return errno ? errno : -1;
 }
 
@@ -76,12 +74,14 @@ int io_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
  * A return value of -EPIPE means that the remote peer closed its
  * connection.  HOWEVER, your app will already have received a
  * SIGPIPE, so you'll have to block this signal if you want to
- * handle the -EPIPE return code.
+ * handle the -EPIPE return code (probably a very good idea).
  *
  * We treat handle the remote resetting the connection the same as
  * it closing the connection.  So, when errno is ECONNRESET, this
  * routine will return EPIPE to tell you that the remote is gone.
  * You don't need to worry about this: EPIPE means no more remote.
+ *
+ * See io_read() for a description on errno and thread safety.
  */
 
 int io_write(io_atom *io, char *buf, size_t cnt, size_t *wrlen)
@@ -99,9 +99,11 @@ int io_write(io_atom *io, char *buf, size_t cnt, size_t *wrlen)
     } 
 
     if(len < 0) {
+	 	/*
         if(errno == ECONNRESET) {
             return EPIPE;
         }
+		*/
         return errno ? errno : -1;
     }
 

@@ -1,16 +1,17 @@
 - iotest and socktest need to read to exhaustion.
 - iotest and socktest need to print an error if write data was discarded.
+- unify POLL_MAX_FDS, EPOLL_MAX_FDS, and FD_SETSIZE
 - Make all io_select routines take an io_poller instead of an io_select_poller
 - Add an io-config much like mutest-config
 - I don't like the macros to convert io_del into io_select_del.  Anything better we can do?
 - need to try to regain type safety in multi.c:io_init.  get rid of all those void*!
-- write poll
-- write epoll
-- write multi
+- get rid of IO_EXCEPT -- this seems like an artifact of select, and it's going away.  Overload IO_READ to handle it maybe.
 - turn io_fd_check into io_get_next_atom.  Need some way to query the atoms that are still in use.  Should also return atom's read status.
+- TODO TODO add unit tests (maybe) and lots of functional tests (definitely!)
+- Modify socktest to not lose data when it encounters a partial write.
 
-* Need to make multi-poller the default.  Otherwise the files get hard to compile.
-  (i.e., how do I tell socket.c what poller we're using?  It's possible dirty.)
-* Added multi-poller to select a poller at runtime
-  (still need to make it fall back to other pollers if errors in init)
-* Made routines thread safe.  No globals are used whatsoever.
+
+* Made the socktest example a lot more correct.
+* Unified pollers into a single poller structure.
+* Made the pollers thread-safe (got rid of all globals)
+

@@ -1,0 +1,123 @@
+                         
+						 
+						     
+						   IO Atom
+
+                  unified edge-triggered polling
+
+
+
+This library aims to make event-driven programming easy on any
+common architecture.
+
+Here's a description of the API:
+
+
+ATOMS
+
+An io_atom associates a file descriptor with an event callback routine.
+Every time an event occurs on the file descriptor, your callback
+routine is called.
+
+You allocate the atom yourself.  Because io_atoms are so small, you should
+just embed them directly in your data structures.  For instance:
+
+		struct my_comm {
+			io_atom io;			<-- add io_atom
+			int my_field;
+			... etc.
+		}
+		
+If you call io_socket_listen or io_socket_accept, the atom will be
+initialized for you.  Otherwise, you can call io_atom_init to initialize
+it yourself.
+
+
+SPECIFY THE EVENTS YOUR ATOM IS INTERESTED IN
+
+Now that you have an atom and a callback routine, you need to add it
+to a poller using io_add.  You can specify the following flags:
+	
+	IO_READ: the callback will be called when there are read events on the fd.
+	IO_WRITE: called when there are write events.
+	IO_EXCEPT: deprecated, probably going away.  used to handle oob data.
+
+To receive events, either IO_READ or IO_WRITE must be set.  To change
+the events an atom is interested in use io_set, io_enable, or io_disable.
+	
+
+POLL FOR EVENTS
+
+To get events, use something like this for your main loop:
+
+	for(;;) {
+		if(io_wait(&poller, MAXINT) < 0) {
+			perror("io_wait");
+		}
+		io_dispatch(&poller);
+	}
+
+io_wait idles until either the timeout expires or there's an event that
+needs to be handled.
+
+The reason io_wait and io_dispatch are separate is that sometimes you
+have global structures that need to be updated just before your event
+callbacks fire.  In this case we don't so we dispatch immediately.
+
+io_dispatch calls the callback routine of each fd that has an event.
+It's safe to add or remove io_atoms inside your callback routines.
+
+
+
+HANDLING EVENTS
+
+Here is a typical event handler:
+	
+	(TODO; look in socktest.c, connection_proc())
+
+1. You use io_resolve_parent() to convert the callback's io_atom
+into your structure that contains the atom.
+
+2. You look for IO_READ (a read event has happened) or IO_WRITE in
+the flags parameter.  One of these will be set (or IO_EXCEPT, but it's
+going away).
+
+3. Read or write to exhaustion.  In other words, move as much data as
+you can until you receive an error (probably -EWOULDBLOCK).
+Use io_read or io_write to make dealing with POSIX a little easier.
+
+That's all!
+
+
+WHY READ TO EXHAUSTION?
+
+This library is edge-triggered, not level triggered.  This makes things a
+little faster but it does have one requirement: when you receive an event
+on a file descriptor, you MUST read it to exhaustion!  If not, the remaining
+data will sit on the fd's buffer until another event fires.  If you notice
+your connections hanging, almost certainly you're not reading or writing
+to exhaustion.  (this also means that you must somehow perform nonblocking
+reads and writes; if you use io_socket_connect and io_socket_accept then
+nonblocking mode will be set for you).
+
+
+ON ENABLING AND DISABLING EVENTS
+
+Normally your atoms will have IO_READ enabled and IO_WRITE disabled.
+This way you handle all incoming data the moment it arrives.
+
+If you can't manage to drain the incoming read buffer, then you should
+disable the IO_READ event.  This will cause the kernel to NAK further
+incoming packets, slowing down the source.  Once you've managed to
+free up room in your read buffer, re-enable the IO_READ event so that
+you can start pulling data from the kernel again.
+
+You probably are not interested in receiving IO_WRITE notifications.
+However, if the remote can't accept data fast enough, data will start
+piling up in the kernel's write buffers until IO_WRITE don't succeed
+fully.
+
+You could run with IO_WRITE disabled but it's probably not necessary since
+there could never be a write notification on an empty buffer anyway.
+(we're edge triggered, remember?)  Therefore, it's probably easiest just
+to leave IO_WRITE enabled for all sockets that you handle.
