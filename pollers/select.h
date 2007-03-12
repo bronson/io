@@ -1,4 +1,4 @@
-// selectop.h
+// select.h
 // Scott Bronson
 // 9 Mar 2007
 
@@ -15,7 +15,10 @@
 #include "../atom.h"
 
 
-struct io_poller;
+#ifndef FD_SETSIZE
+#define FD_SETSIZE 1024
+#endif
+
 
 struct io_select_poller {
 	io_atom* connections[FD_SETSIZE];
@@ -30,7 +33,7 @@ struct io_select_poller {
 	fd_set gfd_read, gfd_write, gfd_except;
 	
 	int max_fd;	// the highest-numbered filedescriptor in connections.
-	int cnt_fd; // the number of fds that have events on them
+	int cnt_fd; // the number of fds that have events on them (set by io_select_wait()).
 };
 typedef struct io_select_poller io_select_poller;
 

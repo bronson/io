@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <values.h>
@@ -157,6 +158,7 @@ int main(int argc, char **argv)
 	const socket_addr addr = { { htonl(INADDR_ANY) }, PORT };
 
 	io_poller_init(&poller);
+	printf("Using %s to poll.\n", poller.poller_name);
 	printf("Opening listening socket...\n");
 
 	if(io_socket_listen(&poller, &accepter, accept_proc, addr) < 0) {

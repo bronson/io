@@ -2,7 +2,7 @@
 // Scott Bronson
 //
 // Uses kqueue to retrieve IO Atom events.
-// TODO: VERY UNFINISHED!!
+// TODO: VERY UNFINISHED!!  (needs to be rewritten anyway because we've switched to thread-safety and the multi poller)
 
 #include <stdio.h>
 #include <sys/time.h>

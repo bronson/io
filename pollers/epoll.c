@@ -12,26 +12,27 @@
 #include "../atom.h"
 
 
-// This is not an upper-limit.  How can we get more insight into
-// exactly what this does?  Is it better to guess high or guess low?
-#define MAXFDS 10000
+// TODO: need to get rid of the perror functions.
 
 
-int epfd;
-
-
-void io_epoll_init()
+int io_epoll_init(io_epoll_poller *poller)
 {
 	struct rlimit rl;
 
-	if((epfd = epoll_create(MAXFDS)) < 0) {
+	if((poller->epfd = epoll_create(MAXFDS)) < 0) {
 		perror("epoll_create");
-		exit(1);
+		return -1;
 	}
 
+	/*
+	
+	TODO: eventually we're going to have to worry about the
+	artificially low rlimit.  But maybe this is something we
+	should set via a wrapper script or global config?
+	
 	if(getrlimit(RLIMIT_NOFILE, &rl) == -1) {
-		perror("getrlimit"); 
-		exit(1);
+		perror("getrlimit");
+		return -1;
 	}
 
 	printf("rlimit maxfds: soft=%ld hard=%ld\n",
@@ -42,20 +43,34 @@ void io_epoll_init()
 		perror("setrlimit"); 
 		exit(1);
 	}
+	*/
+	
+	return 0;
 }
 
 
-void io_epoll_exit()
+int io_epoll_exit(io_epoll_poller *poller)
 {
-	close(epfd);
+	return close(poller->epfd);
+}
+
+int io_epoll_fd_check(io_epoll_poller *poller)
+{
+	// TODO: how do I read back what FDs are being polled?
+	// never mind, wait until I turn fd_check into get_next_fd
+	// or something.
+	return 0;
 }
 
 
-int io_epoll_add()
+int io_epoll_add(io_epoll_poller *poller, io_atom *atom, int flags)
 {
-	int err;
+	int epf = 0;
+	
+	if(flags & IO_READ) epf |= POLLIN|POLLRDHUP;
+	if(flags & IO_WRITE) epf |= POLLOUT;
 
-	err = epoll_ctl(epfd, EPOLL_CTL_ADD, fd,
+	return epoll_ctl(epfd, EPOLL_CTL_ADD, fd,
 			EPOLLIN | EPOLLOUT | EPOLLPRI | EPOLLERR | EPOLLHUP);
 	if(err < 0) {
 		return err;

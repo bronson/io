@@ -9,8 +9,8 @@
 // TODO: should probably make thread-safe by passing a global
 // context everywhere?  This is pretty far in the future...
 
+#ifdef USE_SELECT
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <values.h>
@@ -24,7 +24,9 @@
 // Pass the file descriptor that you'll be listening and accepting on.
 
 int io_select_init(io_select_poller *poller)
-{	
+{
+	poller->max_fd = 0;
+	
 	FD_ZERO(&poller->fd_read);
 	FD_ZERO(&poller->fd_write);
 	FD_ZERO(&poller->fd_except);
@@ -35,7 +37,7 @@ int io_select_init(io_select_poller *poller)
 
 int io_select_poller_dispose(io_select_poller *poller)
 {
-	// nothing to do to prepare for exiting.
+	// nothing to dispose of
 	return 0;
 }
 
@@ -48,7 +50,8 @@ int io_select_fd_check(io_select_poller *poller)
 	// Check that we haven't leaked any atoms.
 	for(i=0; i<FD_SETSIZE; i++) {
 		if(poller->connections[i]) {
-			fprintf(stderr, "Leaked atom fd=%d proc=%08lX!\n", i, (long)poller->connections[i]);
+// TODO: need to figure out some other way of returning this info to the caller.
+//			fprintf(stderr, "Leaked atom fd=%d proc=%08lX!\n", i, (long)poller->connections[i]);
 			cnt += 1;
 		}
 	}
@@ -245,24 +248,28 @@ int io_select_dispatch(struct io_poller *base_poller)
     // and calls io_add, max_fd will take on the new value.  Therefore,
     // we need to loop on the value set at the start of the loop.
 
-    if(poller->cnt_fd > 0) {
-        max = poller->max_fd;
-        for(i=0; i <= max; i++) {
-            flags = 0;
-            if(FD_ISSET(i, &poller->gfd_read)) flags |= IO_READ;
-            if(FD_ISSET(i, &poller->gfd_write)) flags |= IO_WRITE;
-            if(FD_ISSET(i, &poller->gfd_except)) flags |= IO_EXCEPT;
-            if(flags) {
-                if(poller->connections[i]) {
-                    (*poller->connections[i]->proc)(base_poller, poller->connections[i], flags);
-                } else {
-                    // what do we do -- event on an unknown connection?
-                    fprintf(stderr, "io_dispatch: got an event on an uknown connection %d!?\n", i);
-                }
+    if(poller->cnt_fd <= 0) {
+    	return 0;
+    }
+    
+    max = poller->max_fd;
+    for(i=0; i <= max; i++) {
+        flags = 0;
+        if(FD_ISSET(i, &poller->gfd_read)) flags |= IO_READ;
+        if(FD_ISSET(i, &poller->gfd_write)) flags |= IO_WRITE;
+        if(FD_ISSET(i, &poller->gfd_except)) flags |= IO_EXCEPT;
+        if(flags) {
+            if(poller->connections[i]) {
+                (*poller->connections[i]->proc)(base_poller, poller->connections[i], flags);
+            } else {
+                // what do we do -- event on a null connection??
+            	// That's got to be an internal error.  TODO TODO
             }
         }
-	}
+    }
     
     return 0;
 }
+
+#endif
 

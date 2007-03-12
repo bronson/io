@@ -17,6 +17,8 @@
 #ifndef IO_ATOM_H
 #define IO_ATOM_H
 
+#include <sys/types.h>
+
 /// Flag, tells if we're interested in read events.
 #define IO_READ 0x01
 /// Flag, tells if we're interested in write events.

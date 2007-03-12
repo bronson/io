@@ -1,6 +1,6 @@
-- iotest and socktest need to read to exhaustion.
+- The way you select a poller now (-DUSE_EPOLL, -DUSE_POLL, -DUSE_SELECT) is totally wack.
+- iotest needs to read to exhaustion.
 - iotest and socktest need to print an error if write data was discarded.
-- unify POLL_MAX_FDS, EPOLL_MAX_FDS, and FD_SETSIZE
 - Make all io_select routines take an io_poller instead of an io_select_poller
 - Add an io-config much like mutest-config
 - I don't like the macros to convert io_del into io_select_del.  Anything better we can do?

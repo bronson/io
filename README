@@ -121,3 +121,12 @@ You could run with IO_WRITE disabled but it's probably not necessary since
 there could never be a write notification on an empty buffer anyway.
 (we're edge triggered, remember?)  Therefore, it's probably easiest just
 to leave IO_WRITE enabled for all sockets that you handle.
+
+
+SELECTING A POLLER
+
+Right now you can select a poller from the command line:
+	-DUSE_EPOLL (todo)
+	-DUSE_POLL
+	-DUSE_SELECT
+If you don't specify a poller, select is used by default.
