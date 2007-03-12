@@ -134,7 +134,7 @@ int io_epoll_dispatch(struct io_poller *base_poller)
 	io_epoll_poller *poller = &base_poller->poller_data.epoll;
 	    
     max = poller->cnt_fd;
-    for(i=0; i <= max; i++) {
+    for(i=0; i < max; i++) {
     	flags = 0;
     	events = poller->events[i].events;
     	if(events & EPOLLIN) flags |= IO_READ;
