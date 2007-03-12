@@ -111,60 +111,10 @@ int io_select_set(io_select_poller *poller, io_atom *atom, int flags)
 		return -ERANGE;
 	}
 	if(!poller->connections[fd]) {
-		return -EALREADY;
+		return -EEXIST;
 	}
 
 	install(poller, fd, flags);
-
-	return 0;
-}
-
-
-int io_select_enable(io_select_poller *poller, io_atom *atom, int flags)
-{
-	if(atom->fd < 0 || atom->fd > FD_SETSIZE) {
-		return -ERANGE;
-	}
-	if(!poller->connections[atom->fd]) {
-		return -EALREADY;
-	}
-
-	if(flags & IO_READ) {
-		FD_SET(atom->fd, &poller->fd_read);
-	}
-
-	if(flags & IO_WRITE) {
-		FD_SET(atom->fd, &poller->fd_write);
-	}
-
-	if(flags & IO_EXCEPT) {
-		FD_SET(atom->fd, &poller->fd_except);
-	}
-	
-	return 0;
-}
-
-
-int io_select_disable(io_select_poller *poller, io_atom *atom, int flags)
-{
-	if(atom->fd < 0 || atom->fd > FD_SETSIZE) {
-		return -ERANGE;
-	}
-	if(!poller->connections[atom->fd]) {
-		return -EALREADY;
-	}
-
-	if(flags & IO_READ) {
-		FD_CLR(atom->fd, &poller->fd_read);
-	}
-
-	if(flags & IO_WRITE) {
-		FD_CLR(atom->fd, &poller->fd_write);
-	}
-
-	if(flags & IO_EXCEPT) {
-		FD_CLR(atom->fd, &poller->fd_except);
-	}
 
 	return 0;
 }

@@ -43,7 +43,7 @@ to a poller using io_add.  You can specify the following flags:
 	IO_EXCEPT: deprecated, probably going away.  used to handle oob data.
 
 To receive events, either IO_READ or IO_WRITE must be set.  To change
-the events an atom is interested in use io_set, io_enable, or io_disable.
+the events an atom is interested in use io_set.
 	
 
 POLL FOR EVENTS

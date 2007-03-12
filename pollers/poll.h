@@ -25,8 +25,6 @@ int io_poll_poller_dispose(io_poll_poller *poller);
 int io_poll_fd_check(io_poll_poller *poller);
 int io_poll_add(io_poll_poller *poller, io_atom *atom, int flags);
 int io_poll_set(io_poll_poller *poller, io_atom *atom, int flags);
-int io_poll_enable(io_poll_poller *poller, io_atom *atom, int flags);
-int io_poll_disable(io_poll_poller *poller, io_atom *atom, int flags);
 int io_poll_remove(io_poll_poller *poller, io_atom *atom);
 int io_poll_wait(io_poll_poller *poller, unsigned int timeout);
 int io_poll_dispatch(struct io_poller *poller);

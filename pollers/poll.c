@@ -123,7 +123,7 @@ static int poll_find(io_poll_poller *poller, int fd)
 	
 	index = find_fd(poller, fd, NULL);
 	if(index < 0) {
-		return -EALREADY;
+		return -EEXIST;
 	}
 	
 	return index;
@@ -138,30 +138,6 @@ int io_poll_set(io_poll_poller *poller, io_atom *atom, int flags)
 	}
 	
 	poller->pfds[index].events = get_events(flags);
-	return 0;
-}
-
-
-int io_poll_enable(io_poll_poller *poller, io_atom *atom, int flags)
-{
-	int index = poll_find(poller, atom->fd);
-	if(index < 0) {
-		return index;
-	}
-	
-	poller->pfds[index].events |= get_events(flags);
-	return 0;
-}
-
-
-int io_poll_disable(io_poll_poller *poller, io_atom *atom, int flags)
-{
-	int index = poll_find(poller, atom->fd);
-	if(index < 0) {
-		return index;
-	}
-	
-	poller->pfds[index].events &= ~get_events(flags);
 	return 0;
 }
 
@@ -183,7 +159,7 @@ int io_poll_wait(io_poll_poller *poller, unsigned int timeout)
 {
 	int to;
 	
-	if(timeout > INT_MAX) {
+	if(timeout >= INT_MAX) {
 		to = -1;
 	} else {
 		to = timeout;

@@ -14,19 +14,19 @@ int io_poller_init(io_poller *poller)
 	//		to allow the caller to select the poller to use.
 
 	//			epoll
-/*	if(IO_EPOLL_INCLUDED) {
+#ifdef USE_EPOLL
+	if(1) {
 		poller->poller_name = "epoll";
 		poller->funcs.dispose = (void*)io_epoll_poller_dispose;
 		poller->funcs.fd_check = (void*)io_epoll_fd_check;
 		poller->funcs.add = (void*)io_epoll_add;
 		poller->funcs.remove = (void*)io_epoll_remove;
-		poller->funcs.enable = (void*)io_epoll_enable;
-		poller->funcs.disable = (void*)io_epoll_disable;
 		poller->funcs.set = (void*)io_epoll_set;
 		poller->funcs.wait = (void*)io_epoll_wait;
 		poller->funcs.dispatch = (void*)io_epoll_dispatch;
 		return io_epoll_init(&poller->poller_data.epoll);
-	} */
+	}
+#endif
 	
 	//			poll
 #ifdef USE_POLL
@@ -36,8 +36,6 @@ int io_poller_init(io_poller *poller)
 		poller->funcs.fd_check = (void*)io_poll_fd_check;
 		poller->funcs.add = (void*)io_poll_add;
 		poller->funcs.remove = (void*)io_poll_remove;
-		poller->funcs.enable = (void*)io_poll_enable;
-		poller->funcs.disable = (void*)io_poll_disable;
 		poller->funcs.set = (void*)io_poll_set;
 		poller->funcs.wait = (void*)io_poll_wait;
 		poller->funcs.dispatch = (void*)io_poll_dispatch;
@@ -53,8 +51,6 @@ int io_poller_init(io_poller *poller)
 		poller->funcs.fd_check = (void*)io_select_fd_check;
 		poller->funcs.add = (void*)io_select_add;
 		poller->funcs.remove = (void*)io_select_remove;
-		poller->funcs.enable = (void*)io_select_enable;
-		poller->funcs.disable = (void*)io_select_disable;
 		poller->funcs.set = (void*)io_select_set;
 		poller->funcs.wait = (void*)io_select_wait;
 		poller->funcs.dispatch = (void*)io_select_dispatch;
