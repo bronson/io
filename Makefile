@@ -8,13 +8,25 @@ COPTS=-g -Wall -Werror
 # change this to select which poller is used.
 DEFS=-DUSE_EPOLL
 
-all: iotest socktest
+all: testclient testserver
 
 iotest: iotest.c atom.c atom.h poller.c poller.h pollers/select.c pollers/select.h Makefile
 	$(CC) $(COPTS) $(DEFS) iotest.c atom.c poller.c pollers/select.c pollers/poll.c pollers/epoll.c -o iotest
-	
-socktest: socktest.c atom.c atom.h poller.c poller.h socket.c socket.h pollers/select.c pollers/select.h Makefile
-	$(CC) $(COPTS) $(DEFS) socktest.c atom.c poller.c socket.c pollers/select.c pollers/poll.c pollers/epoll.c -o socktest
+
+
+CSRC=atom.c poller.c socket.c
+CHDR=atom.h poller.h socket.h
+CSRC+=pollers/select.c pollers/poll.c pollers/epoll.c
+CSRC+=pollers/select.h pollers/poll.h pollers/epoll.h
+
+all: testclient testserver
+
+testclient: testclient.c $(CSRC) $(CHDR) Makefile
+	$(CC) $(COPTS) $(DEFS) $(CSRC) testclient.c -o testclient
+
+testserver: testserver.c $(CSRC) $(CHDR) Makefile
+	$(CC) $(COPTS) $(DEFS) $(CSRC) testserver.c -o testserver
+
 
 clean:
-	rm -f iotest socktest
+	rm -f testclient testserver iotest

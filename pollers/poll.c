@@ -4,7 +4,6 @@
 // Uses poll to satisfy gatekeeper's network I/O
 
 // TODO: could adding POLLRDHUP, POLLERR, or POLLHUP help?
-// note: we don't support IO_EXCEPT at all.
 
 #ifdef USE_POLL
 
@@ -50,7 +49,6 @@ static int get_events(int flags)
 	
 	if(flags & IO_READ) events |= POLLIN;
 	if(flags & IO_WRITE) events |= POLLOUT;
-	// TODO? we don't support IO_EXCEPT?
 
 	return events;
 }

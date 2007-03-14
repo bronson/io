@@ -1,14 +1,9 @@
-// socktest.c
+// server.c
 // Scott Bronson
-// 10 Mar 2007
+// 10 Mar 2007		(based on socktest.c)
 //
-// This is just iotest.c ported to use the io/socket utilities.
-// Run this program then "telnet localhost 21314" a bunch of times.
-// It just echoes each socket's input back.
-//
-// This example doesn't really show off asynchronous I/O, the whole point
-// of the io_atom library.  And it's doesn't use io/socket.c.
-// So, really, it's a pretty darn poor demo.
+// Listens on the ports you specify, echoes data back at each socket
+// that connects.
 
 
 #include <stdio.h>
@@ -26,11 +21,7 @@
 #include "socket.h"
 
 
-#define PORT 21314
-
-
-io_poller poller;
-io_atom accepter;   // the listening socket
+#define DEFAULT_PORT 6543
 
 
 typedef struct {
@@ -40,16 +31,7 @@ typedef struct {
 } connection;
 
 
-void connection_close(connection *conn)
-{
-	io_remove(&poller, &conn->io);
-	close(conn->io.fd);
-	conn->io.fd = -1;
-	free(conn);
-}
-
-
-void connection_proc(io_poller *pp, io_atom *ioa, int flags)
+void connection_proc(io_poller *poller, io_atom *ioa, int flags)
 {
 	connection *conn = io_resolve_parent(ioa, connection, io);
 	char readbuf[1024];
@@ -61,6 +43,7 @@ void connection_proc(io_poller *pp, io_atom *ioa, int flags)
 			err = io_read(ioa, readbuf, sizeof(readbuf), &rlen);
 			if(!err) {
 				err = io_write(ioa, readbuf, rlen, &wlen);
+				printf("wrote %d chars to %d\n", (int)wlen, ioa->fd);
 				conn->chars_processed += wlen;
 				if(err == EAGAIN || err == EWOULDBLOCK) {
 					// When we can't perform a full write, it means that
@@ -88,10 +71,15 @@ void connection_proc(io_poller *pp, io_atom *ioa, int flags)
 				printf("connection closed by remote on fd %d\n",
 					conn->io.fd);
 			} else {
-				printf("read error %s on fd %d\n", strerror(errno),
+				printf("error %s on fd %d, closing!\n", strerror(errno),
 					conn->io.fd);
 			}
-			connection_close(conn);
+
+			// close the connection, free its memory
+			io_remove(poller, &conn->io);
+			close(conn->io.fd);
+			conn->io.fd = -1;
+			free(conn);
 		}
 
 		// Er, we perform at least two reads every time data is
@@ -115,21 +103,14 @@ void connection_proc(io_poller *pp, io_atom *ioa, int flags)
     }
     
     if(flags & IO_WRITE) {
-		// there's more space in the write buffer
-		// so continue writing.  We don't demonstrate this.
+		// When this event arrives it indicates that space in the write
+		// buffer has been freed up so continue writing.
     }   
-            
-    if(flags & IO_EXCEPT) {
-        // I think this is also used for OOB.
-        // recv (fd1, &c, 1, MSG_OOB);
-		printf("exception on fd %d\n", conn->io.fd);
-		connection_close(conn);
-		return;
-    }
 }
 
 
-void accept_proc(io_poller *pp, io_atom *ioa, int flags)
+// called for every incoming connection request
+void accept_proc(io_poller *poller, io_atom *ioa, int flags)
 {
 	connection *conn;
 	socket_addr remote;
@@ -143,30 +124,66 @@ void accept_proc(io_poller *pp, io_atom *ioa, int flags)
 		return;
 	}
 
-	if(io_socket_accept(&poller, &conn->io, connection_proc, IO_READ, &accepter, &remote) < 0) {
+	if(io_socket_accept(poller, &conn->io, connection_proc, IO_READ, ioa, &remote) < 0) {
 		perror("connecting to remote");
 		return;
 	}
 
-	printf("connection opened from %s port %d given fd %d\n",
+	printf("Connection opened from %s port %d, given fd %d\n",
 		inet_ntoa(remote.addr), remote.port, conn->io.fd);
+}
+
+
+// given an addr:port string, opens a listening socket
+void create_listener(io_poller *poller, const char *str)
+{
+	io_atom *atom;
+	socket_addr sock = { { htonl(INADDR_ANY) }, DEFAULT_PORT };
+	const char *err;
+
+	// Normally atom isn't used by itself like this.
+	// This is a hack.
+	atom = malloc(sizeof(io_atom));
+	if(!atom) {
+		perror("malloc");
+		exit(1);
+	}
+
+	// if a string was supplied, we use it.  else we just
+	// use the defaults above.
+	if(str) {
+		err = io_socket_parse(str, &sock);
+		if(err) {
+			fprintf(stderr, err, str);
+			exit(1);
+		}
+	}
+
+	if(io_socket_listen(poller, atom, accept_proc, sock) < 0) {
+		perror("listen");
+		exit(1);
+	}
+	
+	printf("Opened listening socket on %s:%d, fd=%d\n",
+		inet_ntoa(sock.addr), sock.port, atom->fd);
 }
 
 
 int main(int argc, char **argv)
 {
-	const socket_addr addr = { { htonl(INADDR_ANY) }, PORT };
-
+	io_poller poller;
 	io_poller_init(&poller);
+
 	printf("Using %s to poll.\n", poller.poller_name);
-	printf("Opening listening socket...\n");
 
-	if(io_socket_listen(&poller, &accepter, accept_proc, addr) < 0) {
-		perror("listen");
-		exit(1);
+	if(argc == 1) {
+		// if no cmdline args, create default listener
+		create_listener(&poller, NULL);
 	}
-
-	printf("Listening on port %d, fd %d.\n", addr.port, accepter.fd);
+	for(argv++; *argv; argv++) {
+		// open one listener for every argument specified.
+		create_listener(&poller, *argv);
+	}
 
 	for(;;) {
 		if(io_wait(&poller, MAXINT) < 0) {
@@ -175,9 +192,7 @@ int main(int argc, char **argv)
 		io_dispatch(&poller);
 	}
 
-	io_remove(&poller, &accepter);
 	io_poller_dispose(&poller);
-
 	return 0;
 }
 

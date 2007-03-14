@@ -1,5 +1,7 @@
 - The way you select a poller now (-DUSE_EPOLL, -DUSE_POLL, -DUSE_SELECT) is totally wack.
 - iotest needs to read to exhaustion.
+- Should call readproc and writeproc directly.  No need for flags.  Also have a closeproc I guess?
+- Normalize errors returned from calls.  
 - iotest and socktest need to print an error if write data was discarded.
 - Pass MAXFDS and MAXEVENTS to io_init.  That should normalize all the maxfd junk lying around.
 - Add an io-config utility much like mutest-config
@@ -14,7 +16,8 @@
   the fd the next time thru the event loop (even though it won't have an
   event).
 
-
+* Got rid of the multiplexer -- we now dispatch straight to read_func and write_func.
+* Got rid of IO_EXCEPT.  There's no need to use this in normal usage.
 * Removed io_enable and io_disable, they're just too slow to live.
 * Made the socktest example a lot more correct.
 * Unified pollers into a single poller structure.

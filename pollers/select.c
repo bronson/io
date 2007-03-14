@@ -29,7 +29,6 @@ int io_select_init(io_select_poller *poller)
 	
 	FD_ZERO(&poller->fd_read);
 	FD_ZERO(&poller->fd_write);
-	FD_ZERO(&poller->fd_except);
 	
 	return 0;
 }
@@ -74,11 +73,6 @@ static void install(io_select_poller *poller, int fd, int flags)
 		FD_CLR(fd, &poller->fd_write);
 	}
 
-	if(flags & IO_EXCEPT) {
-		FD_SET(fd, &poller->fd_except);
-	} else {
-		FD_CLR(fd, &poller->fd_except);
-	}
 }
 
 
@@ -139,7 +133,6 @@ int io_select_remove(io_select_poller *poller, io_atom *atom)
     // on a deleted io_atom.
     FD_CLR(fd, &poller->gfd_read);
     FD_CLR(fd, &poller->gfd_write);
-    FD_CLR(fd, &poller->gfd_except);
 
 	while((poller->max_fd >= 0) && (poller->connections[poller->max_fd] == NULL))  {
 		poller->max_fd -= 1;
@@ -174,9 +167,8 @@ int io_select_wait(io_select_poller *poller, unsigned int timeout)
 
 	poller->gfd_read = poller->fd_read;
 	poller->gfd_write = poller->fd_write;
-	poller->gfd_except = poller->fd_except;
 
-	poller->cnt_fd = select(1+poller->max_fd, &poller->gfd_read, &poller->gfd_write, &poller->gfd_except, tvp);
+	poller->cnt_fd = select(1+poller->max_fd, &poller->gfd_read, &poller->gfd_write, NULL, tvp);
     if(poller->cnt_fd < 0) {
         // it's not an error if we were interrupted.
         if(errno == EINTR) {
@@ -207,7 +199,6 @@ int io_select_dispatch(struct io_poller *base_poller)
         flags = 0;
         if(FD_ISSET(i, &poller->gfd_read)) flags |= IO_READ;
         if(FD_ISSET(i, &poller->gfd_write)) flags |= IO_WRITE;
-        if(FD_ISSET(i, &poller->gfd_except)) flags |= IO_EXCEPT;
         if(flags) {
             if(poller->connections[i]) {
                 (*poller->connections[i]->proc)(base_poller, poller->connections[i], flags);

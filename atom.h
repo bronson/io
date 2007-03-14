@@ -23,8 +23,6 @@
 #define IO_READ 0x01
 /// Flag, tells if we're interested in write events.
 #define IO_WRITE 0x02
-/// Flag, tells if we're interested in exceptional events.
-#define IO_EXCEPT 0x04
 
 // reserved for use by applications.  They can send pseudo-events
 // to socket routines.  This could be used, for instance, to send

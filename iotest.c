@@ -111,14 +111,6 @@ void connection_proc(io_poller *pp, io_atom *ioa, int flags)
     if(flags & IO_WRITE) {
 		// there's more space in the write buffer
 		// so continue writing.
-    }   
-            
-    if(flags & IO_EXCEPT) {
-        // I think this is also used for OOB.
-        // recv (fd1, &c, 1, MSG_OOB);
-		printf("exception on fd %d\n", conn->io.fd);
-		connection_close(conn);
-		return;
     }
 }
 

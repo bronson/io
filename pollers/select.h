@@ -22,7 +22,7 @@
 
 struct io_select_poller {
 	io_atom* connections[FD_SETSIZE];
-	fd_set fd_read, fd_write, fd_except;
+	fd_set fd_read, fd_write;
 	
 	// Need to dispatch from a copy of the fd tables so that the
 	// io_procs can delete atoms w/o causing errors (picture deleting
@@ -30,7 +30,7 @@ struct io_select_poller {
 	// TODO: A much more elegant solution would be for io_delete to queue up delete
 	// requests if we're in the middle of dispatching and then handle
 	// them all in one go right before io_dispatch returns.
-	fd_set gfd_read, gfd_write, gfd_except;
+	fd_set gfd_read, gfd_write;
 	
 	int max_fd;	// the highest-numbered filedescriptor in connections.
 	int cnt_fd; // the number of fds that have events on them (set by io_select_wait()).
