@@ -177,7 +177,8 @@ int io_poll_wait(io_poll_poller *poller, unsigned int timeout)
 
 int io_poll_dispatch(struct io_poller *base_poller)
 {
-	int i, max, flags, events;
+	int i, max, events;
+	io_atom *atom;
 	io_poll_poller *poller = &base_poller->poller_data.poll;
 	
     if(poller->cnt_fd <= 0) {
@@ -189,17 +190,12 @@ int io_poll_dispatch(struct io_poller *base_poller)
     	events = poller->pfds[i].revents;
     	if(events) {
     		poller->pfds[i].revents = 0;
-    		flags = 0;
-    		if(events | POLLIN) flags |= IO_READ;
-    		if(events | POLLOUT) flags |= IO_WRITE;
-    		// TODO: if evt|POLLHUP or evt|POLLERR, file is closed?
-    		if(flags) {
-	           if(poller->connections[i]) {
-	                (*poller->connections[i]->proc)(base_poller, poller->connections[i], flags);
-	            } else {
-	                // what do we do -- event on a null connection??
-	            	// That's got to be an internal error.  TODO TODO
-	            }
+    		atom = poller->connections[i];
+    		if(events | POLLIN) {
+    			 (*atom->read_proc)(base_poller, atom);
+    		}
+    		if(events | POLLOUT)  {
+    			 (*atom->write_proc)(base_poller, atom);
     		}
     	}
     }

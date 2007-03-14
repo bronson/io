@@ -35,7 +35,7 @@ typedef struct socket_addr socket_addr;
  * do we?
  */
 
-int io_socket_connect(io_poller *poller, io_atom *io, io_proc proc, socket_addr remote, int flags);
+int io_socket_connect(io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags);
 
 
 /** Just a lower-level version of io_socket_connect.  Returns the fd
@@ -58,7 +58,7 @@ int io_socket_connect_fd(socket_addr remote);
  *                 system.  Pass NULL if you don't care.
  */
 
-int io_socket_accept(io_poller *poller, io_atom *io, io_proc proc, int flags, io_atom *listener, socket_addr *remote);
+int io_socket_accept(io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote);
 
 
 /** Sets up a socket to listen for incoming connections.
@@ -72,7 +72,7 @@ int io_socket_accept(io_poller *poller, io_atom *io, io_proc proc, int flags, io
  * 		to get the
  */
 
-int io_socket_listen(io_poller *poller, io_atom *io, io_proc proc, socket_addr local);
+int io_socket_listen(io_poller *poller, io_atom *io, io_proc accept_proc, socket_addr local);
 
 
 

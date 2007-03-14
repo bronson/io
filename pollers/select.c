@@ -182,7 +182,8 @@ int io_select_wait(io_select_poller *poller, unsigned int timeout)
 
 int io_select_dispatch(struct io_poller *base_poller)
 {
-	int i, max, flags;
+	int i, max;
+	io_atom *atom;
 	io_select_poller *poller = &base_poller->poller_data.select;
 
     // Note that max_fd might change in the middle of this loop.
@@ -196,16 +197,12 @@ int io_select_dispatch(struct io_poller *base_poller)
     
     max = poller->max_fd;
     for(i=0; i <= max; i++) {
-        flags = 0;
-        if(FD_ISSET(i, &poller->gfd_read)) flags |= IO_READ;
-        if(FD_ISSET(i, &poller->gfd_write)) flags |= IO_WRITE;
-        if(flags) {
-            if(poller->connections[i]) {
-                (*poller->connections[i]->proc)(base_poller, poller->connections[i], flags);
-            } else {
-                // what do we do -- event on a null connection??
-            	// That's got to be an internal error.  TODO TODO
-            }
+    	atom = poller->connections[i];
+        if(FD_ISSET(i, &poller->gfd_read)) {
+        	(*atom->read_proc)(base_poller, atom);
+        }
+        if(FD_ISSET(i, &poller->gfd_write)) {
+        	(*atom->write_proc)(base_poller, atom);
         }
     }
     

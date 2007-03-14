@@ -30,44 +30,44 @@ typedef struct {
 } connection;
 
 
-void connection_proc(io_poller *poller, io_atom *ioa, int flags)
+void connection_read_proc(io_poller *poller, io_atom *ioa)
 {
 	connection *conn = io_resolve_parent(ioa, connection, io);
 	char readbuf[1024];
 	int err;
     size_t rlen;
-        
-    if(flags & IO_READ) { 
-		do {
-			err = io_read(ioa, readbuf, sizeof(readbuf), &rlen);
-			if(err) break;
-			printf("Received %d bytes: <<<%.*s>>>\n",
-				(int)rlen, (int)rlen, readbuf);
-		} while(rlen);
-		
-		// read and write errors both end up here.  EAGAIN and EWOULDBLOCK
-		// are not errors -- they're a normal part of non-blocking I/O.
-		if(err && err != EAGAIN && err != EWOULDBLOCK) {
-			if(err == EPIPE || err == ECONNRESET) {
-				printf("connection closed by remote on fd %d\n",
-					conn->io.fd);
-			} else {
-				printf("error %s on fd %d, closing!\n", strerror(errno),
-					conn->io.fd);
-			}
 
-			// error?  close the connection, free its memory
-			io_remove(poller, &conn->io);
-			close(conn->io.fd);
-			conn->io.fd = -1;
-			free(conn);
+    // drain the fd of all data to read
+	do {
+		err = io_read(ioa, readbuf, sizeof(readbuf), &rlen);
+		if(err) break;
+		printf("Received %d bytes: <<<%.*s>>>\n", (int)rlen, (int)rlen, readbuf);
+	} while(rlen);
+	
+	// read and write errors both end up here.  EAGAIN and EWOULDBLOCK
+	// are not errors -- they're a normal part of non-blocking I/O.
+	if(err && err != EAGAIN && err != EWOULDBLOCK) {
+		if(err == EPIPE) {
+			printf("connection closed by remote on fd %d\n", conn->io.fd);
+		} else if(err == ECONNRESET) {
+			printf("connection reset by remote on fd %d\n", conn->io.fd);
+		} else {
+			printf("error %s on fd %d, closing!\n", strerror(errno), conn->io.fd);
 		}
-    }
-    
-    if(flags & IO_WRITE) {
-		// When this event arrives it indicates that space in the write
-		// buffer has been freed up so continue writing.
-    }   
+
+		// error?  close the connection, free its memory
+		io_remove(poller, &conn->io);
+		close(conn->io.fd);
+		conn->io.fd = -1;
+		free(conn);
+	}
+}
+
+
+void connection_write_proc(io_poller *poller, io_atom *ioa)
+{
+	// This event indicates that space in the write buffer has been
+	// freed up.  You can now continue writing to this fd.
 }
 
 
@@ -89,7 +89,7 @@ void create_connection(io_poller *poller, const char *str)
 		exit(1);
 	}
 
-	if(io_socket_connect(poller, &conn->io, connection_proc, remote, IO_READ) < 0) {
+	if(io_socket_connect(poller, &conn->io, connection_read_proc, connection_write_proc, remote, IO_READ) < 0) {
 		perror("connecting to remote");
 		exit(1);
 	}

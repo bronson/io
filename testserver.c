@@ -31,86 +31,102 @@ typedef struct {
 } connection;
 
 
-void connection_proc(io_poller *poller, io_atom *ioa, int flags)
+int echo_data(connection *conn, const char *readbuf, size_t rlen, size_t *wlen)
+{
+	int err;
+	
+	err = io_write(&conn->io, readbuf, rlen, wlen);
+	printf("wrote %d chars to %d\n", (int)*wlen, conn->io.fd);
+	conn->chars_processed += *wlen;
+	if(rlen < *wlen || err == EAGAIN || err == EWOULDBLOCK) {
+		// When we can't perform a full write, it means that
+		// the remote isn't accepting data fast enough.  To
+		// handle this situation correctly, we would have to
+		// hang onto the unwritten data until an IO_WRITE
+		// event tells us that there's more room for us to
+		// finish the write.  This is an exercise left for
+		// the reader.  :)  (it's not a hard fix, but it
+		// does require a per-connection buffer to store
+		// the unwritten data).
+
+		err = 0; // not a fatal error; we'll just drop the data.
+		// Note that even though we can't write, we continue
+		// reading until the input buffer is exhausted.
+	}
+	
+	return err;
+}
+
+
+void connection_read_proc(io_poller *poller, io_atom *ioa)
 {
 	connection *conn = io_resolve_parent(ioa, connection, io);
 	char readbuf[1024];
 	int err;
     size_t rlen, wlen;
         
-    if(flags & IO_READ) { 
-		do {
-			err = io_read(ioa, readbuf, sizeof(readbuf), &rlen);
-			if(!err) {
-				err = io_write(ioa, readbuf, rlen, &wlen);
-				printf("wrote %d chars to %d\n", (int)wlen, ioa->fd);
-				conn->chars_processed += wlen;
-				if(err == EAGAIN || err == EWOULDBLOCK) {
-					// When we can't perform a full write, it means that
-					// the remote isn't accepting data fast enough.  To
-					// handle this situation correctly, we would have to
-					// hang onto the unwritten data until an IO_WRITE
-					// event tells us that there's more room for us to
-					// finish the write.  This is an exercise left for
-					// the reader.  :)  (it's not a hard fix, but it
-					// does require a per-connection buffer to store
-					// unwritten data).
-
-					err = 0; // not a fatal error; we'll just drop the data.
-					// Note that even though we can't write, we continue
-					// reading until the input buffer is exhausted.
-				}
-				if(err) break;
-			}
-		} while(rlen);
-		
-		// read and write errors both end up here.  EAGAIN and EWOULDBLOCK
-		// are not errors -- they're a normal part of non-blocking I/O.
-		if(err && err != EAGAIN && err != EWOULDBLOCK) {
-			if(err == EPIPE || err == ECONNRESET) {
-				printf("connection closed by remote on fd %d\n",
-					conn->io.fd);
-			} else {
-				printf("error %s on fd %d, closing!\n", strerror(errno),
-					conn->io.fd);
-			}
-
-			// close the connection, free its memory
-			io_remove(poller, &conn->io);
-			close(conn->io.fd);
-			conn->io.fd = -1;
-			free(conn);
+	do {
+		err = io_read(ioa, readbuf, sizeof(readbuf), &rlen);
+		if(!err) {
+			err = echo_data(conn, readbuf, rlen, &wlen);
+			if(err) break;
+		}
+	} while(rlen);
+	
+	// read and write errors both end up here.  EAGAIN and EWOULDBLOCK
+	// are not errors -- they're a normal part of non-blocking I/O.
+	if(err && err != EAGAIN && err != EWOULDBLOCK) {
+		if(err == EPIPE || err == ECONNRESET) {
+			printf("connection closed by remote on fd %d\n",
+				conn->io.fd);
+		} else {
+			printf("error %s on fd %d, closing!\n", strerror(errno),
+				conn->io.fd);
 		}
 
-		// Er, we perform at least two reads every time data is
-		// available!
-		//
-		// Well, POSIX is unfortunate...  They allow an interrupted read
-		// or write to return either EINTR and 0 bytes (that's OK by me)
-		// OR return no error and some partial amount of data.  Therefore
-		// you can NOT loop on while(len == sizeof(readbuf)).  While
-		// looping like this will always result in 1 less system call
-		// (because in theory, another read after a partial read should
-		// always return EAGAIN), it's incorrect.  A signal can cause
-		// the loop to exit before you've exhausted the input buffer and
-		// you will receive no more IO_READ events until more data arrives
-		// (which may not happen if the remote is waiting for you to
-		// to send a reply to the data that's already in the input buffer).
-		//
-		// SUMMARY: just keep reading until you get EAGAIN or EWOULDBLOCK
-		// (those // are the same on Linux).  Don't try to optimize the
-		// redundant read away.
-    }
-    
-    if(flags & IO_WRITE) {
-		// When this event arrives it indicates that space in the write
-		// buffer has been freed up so continue writing.
-    }   
+		// close the connection, free its memory
+		io_remove(poller, &conn->io);
+		close(conn->io.fd);
+		conn->io.fd = -1;
+		free(conn);
+	}
+
+	// It's true, we perform at least two reads every time data is
+	// available!  Doesn't these extra system calls hurt performance?
+	//
+	// Well, POSIX is unfortunate...  They allow an interrupted read
+	// or write to return either EINTR and 0 bytes (that's OK by me)
+	// OR return no error and some partial amount of data.  Therefore
+	// you can't loop on while(len == sizeof(readbuf)) because while,
+	// in theory, another read after a partial read should
+	// always return EAGAIN), a signal could cause
+	// the loop to exit before you've exhausted the input buffer.
+	// Tou will receive no more IO_READ events until more data arrives
+	// (which may not happen if the remote is waiting for you to
+	// to send a reply to the data that's already in the input buffer).
+	// And your connection will hang.
+	//
+	// SUMMARY: just keep reading until you get EAGAIN or EWOULDBLOCK
+	// (those // are the same on Linux).  Don't try to optimize the
+	// redundant read away.
+	//
+	// I think the solution is to perform a single read into a gigantic
+	// buffer each time through the event loop.  If the read returned
+	// data, then you mark that fd to be explicitly read the next time
+	// through the event loop (probably after all other fds are handled).
+	// Just swap the fd in and out of a doubly linked list.
+}
+
+
+void connection_write_proc(io_poller *poller, io_atom *ioa)
+{
+	// When this event arrives it indicates that space in the write
+	// buffer has been freed up so continue writing.
 }
 
 
 // called for every incoming connection request
-void accept_proc(io_poller *poller, io_atom *ioa, int flags)
+void accept_proc(io_poller *poller, io_atom *ioa)
 {
 	connection *conn;
 	socket_addr remote;
@@ -124,7 +140,7 @@ void accept_proc(io_poller *poller, io_atom *ioa, int flags)
 		return;
 	}
 
-	if(io_socket_accept(poller, &conn->io, connection_proc, IO_READ, ioa, &remote) < 0) {
+	if(io_socket_accept(poller, &conn->io, connection_read_proc, connection_write_proc, IO_READ, ioa, &remote) < 0) {
 		perror("connecting to remote");
 		return;
 	}

@@ -5,9 +5,10 @@
 // Run this program then "telnet localhost 21314" a bunch of times.
 // It just echoes each socket's input back.
 //
-// This example doesn't really show off asynchronous I/O, the whole point
-// of the io_atom library.  And it's doesn't use io/socket.c.
-// So, really, it's a pretty darn poor demo.
+// You should look at the testserver.c demo.  It does more than this
+// example in significantly less code because it uses io/socket.c.
+// If you want to see how to interface with IO Atom at the low level,
+// however, this demo might be interesting.
 
 
 #include <stdio.h>
@@ -75,47 +76,49 @@ void connection_close(connection *conn)
 }
 
 
-void connection_proc(io_poller *pp, io_atom *ioa, int flags)
+void connection_read_proc(io_poller *pp, io_atom *ioa)
 {
 	connection *conn = io_resolve_parent(ioa, connection, io);
     int fd = conn->io.fd;
     int len;
-        
-    if(flags & IO_READ) { 
-        do {
-            len = read(fd, readbuf, sizeof(readbuf));
-        } while (errno == EINTR);   // stupid posix
     
-        if(len > 0) {
+    do {
+	    do {
+	        len = read(fd, readbuf, sizeof(readbuf));
+	    } while (errno == EINTR);   // stupid posix
+	
+	    if(len > 0) {
 			write(fd, readbuf, len);
-            conn->chars_processed += len;
-        } else if(len == 0) {
-            // A 0-length read means remote has closed normally
+	        conn->chars_processed += len;
+	    } else if(len == 0) {
+	        // A 0-length read means remote has closed normally
 			printf("connection closed by remote on fd %d\n", conn->io.fd);
 			connection_close(conn);
 			return;
-        } else {
-            // handle an error on the socket
-            if(errno == EAGAIN) {
-                // nothing to read?  weird.
-            } else if(errno == EWOULDBLOCK) {
-                // with glibc EAGAIN==EWOULDBLOCK so this is probably dead code
-            } else {
+	    } else {
+	        // handle an error on the socket
+	        if(errno == EAGAIN) {
+	            // nothing to read?  weird.
+	        } else if(errno == EWOULDBLOCK) {
+	            // with glibc EAGAIN==EWOULDBLOCK so this is probably dead code
+	        } else {
 				printf("read error %s on fd %d\n", strerror(errno), conn->io.fd);
 				connection_close(conn);
-                return;
-            }
-        }
-    }
-    
-    if(flags & IO_WRITE) {
-		// there's more space in the write buffer
-		// so continue writing.
-    }
+	            return;
+	        }
+	    }
+    } while(len > 0);
 }
 
 
-void accept_proc(io_poller *pp, io_atom *ioa, int flags)
+void connection_write_proc(io_poller *pp, io_atom *ioa)
+{
+	// there's more space in the write buffer
+	// so continue writing.  (this is a little complex; not demonstrated)
+}
+
+
+void accept_proc(io_poller *pp, io_atom *ioa)
 {
     connection *conn;
     struct sockaddr_in pin;
@@ -155,9 +158,7 @@ void accept_proc(io_poller *pp, io_atom *ioa, int flags)
 		return;
 	}
 
-	conn->io.fd = sd;
-	conn->io.proc = connection_proc;
-
+    io_atom_init(&conn->io, sd, connection_read_proc, connection_write_proc);
 	if(io_add(&poller, &conn->io, IO_READ) < 0) {
 		perror("io_add_main");
 		close(sd);
@@ -221,9 +222,8 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	g_accepter.fd = sd;
-	g_accepter.proc = accept_proc;
-
+	io_atom_init(&g_accepter, sd, accept_proc, NULL);
+	
 	if(io_add(&poller, &g_accepter, IO_READ) < 0) {
 		perror("io_add_main");
 		close(sd);

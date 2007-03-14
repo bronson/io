@@ -110,7 +110,7 @@ bail:
  * If there was an error, you should find the reason in strerror.
  */
 
-int io_socket_connect(io_poller *poller, io_atom *io, io_proc proc, socket_addr remote, int flags)
+int io_socket_connect(io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags)
 {   
 	int err;
 
@@ -119,7 +119,7 @@ int io_socket_connect(io_poller *poller, io_atom *io, io_proc proc, socket_addr 
 		return -1;
 	}
 
-	io->proc = proc;
+	io_atom_init(io, io->fd, read_proc, write_proc);
 	err = io_add(poller, io, flags);
     if(err < 0) {
 		goto bail;
@@ -154,7 +154,7 @@ bail:
  * there was an error.
  */
 
-int io_socket_accept(io_poller *poller, io_atom *io, io_proc proc, int flags, io_atom *listener, socket_addr *remote)
+int io_socket_accept(io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote)
 {
     struct sockaddr_in pin;
     socklen_t plen = sizeof(pin);
@@ -182,7 +182,7 @@ int io_socket_accept(io_poller *poller, io_atom *io, io_proc proc, int flags, io
         return -1;
     }
 
-	io->proc = proc;
+	io_atom_init(io, io->fd, read_proc, write_proc);
     err = io_add(poller, io, flags);
 	if(err < 0) {
         close(io->fd);
@@ -209,7 +209,7 @@ int io_socket_accept(io_poller *poller, io_atom *io, io_proc proc, int flags, io
  * @returns the new fd.
  */
 
-int io_socket_listen(io_poller *poller, io_atom *io, io_proc proc, socket_addr local)
+int io_socket_listen(io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local)
 {
     struct sockaddr_in sin;
 
@@ -239,7 +239,7 @@ int io_socket_listen(io_poller *poller, io_atom *io, io_proc proc, socket_addr l
 		return -1;
     }
 
-    io->proc = proc;
+    io_atom_init(io, io->fd, read_proc, NULL);
     if(io_add(poller, io, IO_READ) < 0) {
         close(io->fd);
 		return -1;

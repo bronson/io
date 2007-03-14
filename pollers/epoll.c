@@ -129,24 +129,19 @@ int io_epoll_wait(io_epoll_poller *poller, unsigned int timeout)
 
 int io_epoll_dispatch(struct io_poller *base_poller)
 {
-	int i, max, events, flags;
+	int i, max, events;
 	io_atom *atom;
 	io_epoll_poller *poller = &base_poller->poller_data.epoll;
 	    
     max = poller->cnt_fd;
     for(i=0; i < max; i++) {
-    	flags = 0;
+    	atom = (io_atom*)poller->events[i].data.ptr;
     	events = poller->events[i].events;
-    	if(events & EPOLLIN) flags |= IO_READ;
-    	if(events & EPOLLOUT) flags |= IO_WRITE;
-    	if(flags) {
-    		atom = (io_atom*)poller->events[i].data.ptr;
-    		if(atom) {
-    			(*atom->proc)(base_poller, atom, flags);
-    		} else {
-                // what do we do -- event on a null connection??
-            	// That's got to be an internal error.  TODO TODO
-    		}
+    	if(events & EPOLLIN) {
+    		(*atom->read_proc)(base_poller, atom);
+    	}
+    	if(events & EPOLLOUT) {
+    		(*atom->write_proc)(base_poller, atom);
     	}
     }
     

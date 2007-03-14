@@ -84,7 +84,7 @@ int io_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
  * See io_read() for a description on errno and thread safety.
  */
 
-int io_write(io_atom *io, char *buf, size_t cnt, size_t *wrlen)
+int io_write(io_atom *io, const char *buf, size_t cnt, size_t *wrlen)
 {
     ssize_t len;
 

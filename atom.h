@@ -24,17 +24,6 @@
 /// Flag, tells if we're interested in write events.
 #define IO_WRITE 0x02
 
-// reserved for use by applications.  They can send pseudo-events
-// to socket routines.  This could be used, for instance, to send
-// higher-level events, such as "data available", "remote has closed
-// the connection", etc.  (er, thanks to the new dispatching, this
-// capability will probably never be used...)
-
-#define IO_USER1 0x10
-#define IO_USER2 0x20
-#define IO_USER3 0x40
-#define IO_USER4 0x80
-
 
 struct io_atom;  	// forward decl
 struct io_poller;	// forward decl
@@ -47,7 +36,7 @@ struct io_poller;	// forward decl
  * @param flags What sort of action is happening.
  */
 
-typedef void (*io_proc)(struct io_poller *poller, struct io_atom *atom, int flags);
+typedef void (*io_proc)(struct io_poller *poller, struct io_atom *atom);
 
 
 /**
@@ -95,19 +84,24 @@ typedef void (*io_proc)(struct io_poller *poller, struct io_atom *atom, int flag
  */
 
 struct io_atom {
-	io_proc proc;   ///< The function to call when there is an event on fd.
-	int fd;         ///< The fd to watch for events.
+	io_proc read_proc;	///< The function to call when there is a read event on the fd.
+	io_proc write_proc;	///< Function to call when there is a write event on the fd.
+	int fd;         	///< The fd to watch for events.
 };
 typedef struct io_atom io_atom;
 
 
 /** Ensures that you've fully initialized an io_atom.
  * 
- * er...  There are now so few fields in an io_atom that just
- * about every utility routine inits the atom for you.  This
- * macro should probably go away...?
+ * It's true that initializing an atom is so easy that there's little
+ * apparent reason for this macro.  However, if io_atom ever changes
+ * (it has in the past), if you use this macro, you're guaranteed to
+ * receive error messages where you need to update your code.  If you
+ * just bang the fields directly then you'll probably get a partially
+ * initialized struct and have to spend a fair amount of debug time
+ * trying to figure out what's going on.
  */
-#define io_atom_init(io,ff,pp) ((io)->fd=(ff),(io)->proc=(pp))
+#define io_atom_init(io,ff,ppr,ppw) ((io)->fd=(ff),(io)->read_proc=(ppr),(io)->write_proc=(ppw))
 
 
 /** Reads data from a socket.
@@ -135,7 +129,7 @@ int io_read(io_atom *io, char *buf, size_t cnt, size_t *len);
 /** Writes data to a socket
  */
 
-int io_write(io_atom *io, char *buf, size_t cnt, size_t *len);
+int io_write(io_atom *io, const char *buf, size_t cnt, size_t *len);
 
 
 /** Just a utility function.  This routine tries to parse an integer
