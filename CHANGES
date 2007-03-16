@@ -7,7 +7,6 @@
 - need to try to regain type safety in multi.c:io_init.  get rid of all those void*!
 - turn io_fd_check into io_get_next_atom.  Need some way to query the atoms that are still in use.  Should also return atom's read status.
 - TODO TODO add unit tests (maybe) and lots of functional tests (definitely!)
-- Modify socktest to not lose data when it encounters a partial write.
 
 
 * Now split the ioproc into read_proc and write_proc.  Got rid of the multiplexer.
