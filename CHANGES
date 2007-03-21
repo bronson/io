@@ -7,6 +7,8 @@
 - need to try to regain type safety in multi.c:io_init.  get rid of all those void*!
 - turn io_fd_check into io_get_next_atom.  Need some way to query the atoms that are still in use.  Should also return atom's read status.
 - TODO TODO add unit tests (maybe) and lots of functional tests (definitely!)
+- Make socket.c IPv6 aware, http://people.redhat.com/drepper/userapi-ipv6.html
+    Of course... probably want to leave the ipv4 hooks around too, since not everything is ipv6 yet?
 
 
 * Now split the ioproc into read_proc and write_proc.  Got rid of the multiplexer.
@@ -15,4 +17,5 @@
 * Made the socktest example a lot more correct.
 * Unified pollers into a single poller structure.
 * Made the pollers thread-safe (got rid of all globals)
+
 

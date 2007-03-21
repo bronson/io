@@ -60,6 +60,10 @@ typedef void (*io_proc)(struct io_poller *poller, struct io_atom *atom);
  * to struct test.
  *
  *   struct test *test = io_resolve_parent(ap, struct test, a);
+ * 
+ * TODO: this is totally type unsafe!!  How about using
+ * __builtin_types_compatible_p to ensure that *ptr and
+ * &result->member are identical?
  */
 
 #define io_resolve_parent(ptr, type, member) \
