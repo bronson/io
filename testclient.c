@@ -102,7 +102,12 @@ void create_connection(io_poller *poller, const char *str)
 int main(int argc, char **argv)
 {
 	io_poller poller;
-	io_poller_init(&poller);
+
+	io_poller_init(&poller, POLLER_ANY);
+	if(!poller.poller_name) {
+		printf("Could not start a poller!\n");
+		exit(1);
+	}
 
 	printf("Using %s to poll.\n", poller.poller_name);
 

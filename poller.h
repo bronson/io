@@ -17,6 +17,7 @@
 // TODO: try to use preprocessor to decide what pollers are even compilable.
 #if !(defined(USE_SELECT) || defined(USE_POLL) || defined(USE_EPOLL))
 #define USE_SELECT
+#define USE_MOCK
 #endif
 
 #ifdef USE_SELECT
@@ -31,8 +32,25 @@
 #include "pollers/epoll.h"
 #endif
 
+#ifdef USE_MOCK
+#include "pollers/mock.h"
+#endif
+
 
 struct io_poller;
+
+typedef enum {
+	POLLER_SELECT= 0x01,
+	POLLER_POLL = 0x02,
+	POLLER_EPOLL = 0x04,
+	POLLER_KQUEUE = 0x08,
+	POLLER_MOCK = 0x80,
+
+	POLLER_ANY = 0xFF,		///< chooses the fastest poller for the platform
+	POLLER_LINUX = POLLER_SELECT | POLLER_POLL | POLLER_EPOLL,
+	POLLER_BSD = POLLER_SELECT | POLLER_POLL | POLLER_KQUEUE
+} poller_type;
+
 
 // Believe you me, this table is *almost* enough to drive me to port this to C++.
 // (biggest problem with doing that is having to babysit C++'s memory management)
@@ -66,12 +84,16 @@ struct io_poller {
 		io_epoll_poller epoll;
 #endif
 		
+#ifdef USE_MOCK
+		io_mock_poller mock;
+#endif
+		
 	} poller_data;
 };
 typedef struct io_poller io_poller;
 
 
-int io_poller_init(io_poller *poller);
+int io_poller_init(io_poller *poller, poller_type type);
 #define io_poller_dispose(a) (*(a)->funcs.dispose)((io_poller*)&(a)->poller_data)
 #define io_fd_check(a)		(*(a)->funcs.fd_check)((io_poller*)&(a)->poller_data)
 #define io_add(a,b,c)		(*(a)->funcs.add)((io_poller*)&(a)->poller_data,b,c)

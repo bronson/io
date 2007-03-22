@@ -191,7 +191,12 @@ int main(int argc, char **argv)
 	int sd;
 	struct sockaddr_in sin;
 	
-	io_poller_init(&poller);
+	io_poller_init(&poller, POLLER_ANY);
+	if(!poller.poller_name) {
+		printf("Could not start a poller!\n");
+		exit(1);
+	}
+	
 	printf("Opening listening socket...\n");
 
 	if((sd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {

@@ -13,6 +13,15 @@ common architecture.
 Here's a description of the API:
 
 
+Note that the select and poll pollers are level-triggered because their
+underlying calls are level-triggered.  All other pollers are edge-triggered.
+There is no harm at all in using a level-based API as if it were
+edge-triggered (just slightly worse performance, but if you're using
+select or poll you're deep in mud anyway), so there's no need to change
+your code when you switch pollers.
+
+
+
 ATOMS
 
 An io_atom associates a file descriptor with an event callback routine.

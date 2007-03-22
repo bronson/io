@@ -1,4 +1,5 @@
-- The way you select a poller now (-DUSE_EPOLL, -DUSE_POLL, -DUSE_SELECT) is totally wack.
+- The way you select a poller now (-DUSE_EPOLL, -DUSE_POLL, -DUSE_SELECT) is wack.
+  Figure out how to sniff compiler #defines to figure out what pollers are available.
 - Normalize errors returned from calls.  
 - iotest and socktest need to print an error if write data was discarded.
 - Pass MAXFDS and MAXEVENTS to io_init.  That should normalize all the maxfd junk lying around.
@@ -11,6 +12,7 @@
     Of course... probably want to leave the ipv4 hooks around too, since not everything is ipv6 yet?
 
 
+* Added poller_type so client can force a particular poller to be used at runtime.
 * Now split the ioproc into read_proc and write_proc.  Got rid of the multiplexer.
 * Got rid of IO_EXCEPT.  There's no need to use this in normal usage.
 * Removed io_enable and io_disable, they're just too slow to live.
