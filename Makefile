@@ -10,8 +10,8 @@ DEFS=-DUSE_EPOLL
 
 all: testclient testserver
 
-iotest: iotest.c atom.c atom.h poller.c poller.h pollers/select.c pollers/select.h Makefile
-	$(CC) $(COPTS) $(DEFS) iotest.c atom.c poller.c pollers/select.c pollers/poll.c pollers/epoll.c -o iotest
+iotest: iotest.c atom.c atom.h poller.c poller.h socket.c socket.h pollers/select.c pollers/select.h Makefile
+	$(CC) $(COPTS) $(DEFS) iotest.c atom.c poller.c socket.c pollers/select.c pollers/poll.c pollers/epoll.c -o iotest
 
 
 CSRC=atom.c poller.c socket.c

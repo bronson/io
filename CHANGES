@@ -1,3 +1,4 @@
+- Rename poller.h to io.h -- it's the .h file that should be included by everything.
 - The way you select a poller now (-DUSE_EPOLL, -DUSE_POLL, -DUSE_SELECT) is wack.
   Figure out how to sniff compiler #defines to figure out what pollers are available.
 - Normalize errors returned from calls.  
@@ -12,6 +13,9 @@
     Of course... probably want to leave the ipv4 hooks around too, since not everything is ipv6 yet?
 
 
+* Made io_socket_connect_fd private again.  To replace its usage, create an automatic
+  io_atom on the stack, call io_socket_connect with that atom, then copy the atom
+  into the final structure when it's ready.  Just trying to reduce the API.
 * Added poller_type so client can force a particular poller to be used at runtime.
 * Now split the ioproc into read_proc and write_proc.  Got rid of the multiplexer.
 * Got rid of IO_EXCEPT.  There's no need to use this in normal usage.

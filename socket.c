@@ -22,8 +22,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-
-#include "socket.h"
+#include "poller.h"
 
 
 static int set_nonblock(int sd)
@@ -46,14 +45,13 @@ static int set_nonblock(int sd)
 }
 
 
-/** Like io_socket_connect() except it doesn't create the atom, only
- *  the fd.
- *  You can then pass the fd to io_atom_init and io_add later.
+/** Connects to the given address.
  * 
+ *  @param remote The address to connect to.
  *  @returns the new socket fd (>=0) or the error (<0) if unsuccessful.
  */
 
-int io_socket_connect_fd(socket_addr remote)
+static int connect_fd(socket_addr remote)
 {
     struct sockaddr_in sa;
     int err;
@@ -114,7 +112,7 @@ int io_socket_connect(io_poller *poller, io_atom *io, io_proc read_proc, io_proc
 {   
 	int err;
 
-	io->fd = io_socket_connect_fd(remote);
+	io->fd = connect_fd(remote);
 	if(io->fd < 0) {
 		return -1;
 	}
@@ -262,7 +260,7 @@ int io_socket_listen(io_poller *poller, io_atom *io, io_proc read_proc, socket_a
  *  discovered.
  */
 
-char* io_socket_parse(const char *spec, socket_addr *sock)
+char* io_parse_address(const char *spec, socket_addr *sock)
 {
 	char buf[512];
 	const char *colon;

@@ -18,7 +18,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "socket.h"
+#include "poller.h"
 
 
 #define DEFAULT_PORT 6543
@@ -31,11 +31,11 @@ typedef struct {
 } connection;
 
 
-int echo_data(connection *conn, const char *readbuf, size_t rlen, size_t *wlen)
+int echo_data(io_poller *poller, connection *conn, const char *readbuf, size_t rlen, size_t *wlen)
 {
 	int err;
 	
-	err = io_write(&conn->io, readbuf, rlen, wlen);
+	err = io_write(poller, &conn->io, readbuf, rlen, wlen);
 	printf("wrote %d chars to %d\n", (int)*wlen, conn->io.fd);
 	conn->chars_processed += *wlen;
 	if(rlen < *wlen || err == EAGAIN || err == EWOULDBLOCK) {
@@ -66,9 +66,9 @@ void connection_read_proc(io_poller *poller, io_atom *ioa)
     size_t rlen, wlen;
         
 	do {
-		err = io_read(ioa, readbuf, sizeof(readbuf), &rlen);
+		err = io_read(poller, ioa, readbuf, sizeof(readbuf), &rlen);
 		if(!err) {
-			err = echo_data(conn, readbuf, rlen, &wlen);
+			err = echo_data(poller, conn, readbuf, rlen, &wlen);
 			if(err) break;
 		}
 	} while(rlen);
@@ -140,7 +140,7 @@ void accept_proc(io_poller *poller, io_atom *ioa)
 		return;
 	}
 
-	if(io_socket_accept(poller, &conn->io, connection_read_proc, connection_write_proc, IO_READ, ioa, &remote) < 0) {
+	if(io_accept(poller, &conn->io, connection_read_proc, connection_write_proc, IO_READ, ioa, &remote) < 0) {
 		perror("connecting to remote");
 		return;
 	}
@@ -157,25 +157,23 @@ void create_listener(io_poller *poller, const char *str)
 	socket_addr sock = { { htonl(INADDR_ANY) }, DEFAULT_PORT };
 	const char *err;
 
-	// Normally atom isn't used by itself like this.
-	// This is a hack.
 	atom = malloc(sizeof(io_atom));
 	if(!atom) {
 		perror("malloc");
 		exit(1);
 	}
 
-	// if a string was supplied, we use it.  else we just
-	// use the defaults above.
+	// if a string was supplied, we use it, else we just
+	// use the defaults that are already stored in sock.
 	if(str) {
-		err = io_socket_parse(str, &sock);
+		err = io_parse_address(str, &sock);
 		if(err) {
 			fprintf(stderr, err, str);
 			exit(1);
 		}
 	}
 
-	if(io_socket_listen(poller, atom, accept_proc, sock) < 0) {
+	if(io_listen(poller, atom, accept_proc, sock) < 0) {
 		perror("listen");
 		exit(1);
 	}

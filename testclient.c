@@ -17,7 +17,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "socket.h"
+#include "poller.h"
 
 
 #define DEFAULT_PORT 6543
@@ -39,7 +39,7 @@ void connection_read_proc(io_poller *poller, io_atom *ioa)
 
     // drain the fd of all data to read
 	do {
-		err = io_read(ioa, readbuf, sizeof(readbuf), &rlen);
+		err = io_read(poller, ioa, readbuf, sizeof(readbuf), &rlen);
 		if(err) break;
 		printf("Received %d bytes: <<<%.*s>>>\n", (int)rlen, (int)rlen, readbuf);
 	} while(rlen);
@@ -83,13 +83,13 @@ void create_connection(io_poller *poller, const char *str)
 		exit(1);
 	}
 
-	err = io_socket_parse(str, &remote);
+	err = io_parse_address(str, &remote);
 	if(err) {
 		fprintf(stderr, err, str);
 		exit(1);
 	}
 
-	if(io_socket_connect(poller, &conn->io, connection_read_proc, connection_write_proc, remote, IO_READ) < 0) {
+	if(io_connect(poller, &conn->io, connection_read_proc, connection_write_proc, remote, IO_READ) < 0) {
 		perror("connecting to remote");
 		exit(1);
 	}

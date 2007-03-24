@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include "atom.h"
+#include "poller.h"
 
 
 /** Reads from the given io_atom.
@@ -33,7 +34,7 @@
  * errno value.
  */
 
-int io_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
+int io_atom_read(struct io_poller *poller, io_atom *io, char *buf, size_t cnt, size_t *readlen)
 {
     ssize_t len;
 
@@ -84,7 +85,7 @@ int io_read(io_atom *io, char *buf, size_t cnt, size_t *readlen)
  * See io_read() for a description on errno and thread safety.
  */
 
-int io_write(io_atom *io, const char *buf, size_t cnt, size_t *wrlen)
+int io_atom_write(struct io_poller *poller, io_atom *io, const char *buf, size_t cnt, size_t *wrlen)
 {
     ssize_t len;
 

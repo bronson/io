@@ -56,9 +56,7 @@ int io_epoll_poller_dispose(io_epoll_poller *poller)
 
 int io_epoll_fd_check(io_epoll_poller *poller)
 {
-	// TODO: how do I read back what FDs are being polled?
-	// need to wait until I turn fd_check into get_next_fd
-	// or something.
+	// epoll doesn't support querying how many fds are being watched.
 	return 0;
 }
 

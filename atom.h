@@ -127,13 +127,13 @@ typedef struct io_atom io_atom;
  * 		bytes will be written to the buffer.
  */
 
-int io_read(io_atom *io, char *buf, size_t cnt, size_t *len);
+int io_atom_read(struct io_poller *poller, io_atom *io, char *buf, size_t cnt, size_t *len);
 
 
 /** Writes data to a socket
  */
 
-int io_write(io_atom *io, const char *buf, size_t cnt, size_t *len);
+int io_atom_write(struct io_poller *poller, io_atom *io, const char *buf, size_t cnt, size_t *len);
 
 
 /** Just a utility function.  This routine tries to parse an integer

@@ -23,6 +23,13 @@ int io_poller_init(io_poller *poller, poller_type type)
 
 	memset(poller, 0, sizeof(io_poller));
 	
+	// These are handled by identical routines in all pollers
+	// except for the mock poller.
+	poller->funcs.read = io_atom_read;
+	poller->funcs.write = io_atom_write;
+	poller->funcs.connect = io_socket_connect;
+	poller->funcs.accept = io_socket_accept;
+	poller->funcs.listen = io_socket_listen;
 
 #ifdef USE_EPOLL
 	if(type & POLLER_EPOLL) {
@@ -79,6 +86,12 @@ int io_poller_init(io_poller *poller, poller_type type)
 		poller->funcs.set = (void*)io_select_set;
 		poller->funcs.wait = (void*)io_select_wait;
 		poller->funcs.dispatch = (void*)io_select_dispatch;
+		
+		poller->funcs.read = io_mock_read;
+		poller->funcs.write = io_mock_write;
+		poller->funcs.connect = io_mock_connect;
+		poller->funcs.accept = io_mock_accept;
+		poller->funcs.listen = io_mock_listen;
 		return io_select_init(&poller->poller_data.select);
 	}
 #endif
