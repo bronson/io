@@ -80,7 +80,7 @@ int io_select_add(io_select_poller *poller, io_atom *atom, int flags)
 {
 	int fd = atom->fd;
 
-	if(fd < 0 || fd > FD_SETSIZE) {
+	if(fd < 0 || fd >= FD_SETSIZE) {
 		return -ERANGE;
 	}
 	if(poller->connections[fd]) {
@@ -101,7 +101,7 @@ int io_select_set(io_select_poller *poller, io_atom *atom, int flags)
 {
 	int fd = atom->fd;
 
-	if(fd < 0 || fd > FD_SETSIZE) {
+	if(fd < 0 || fd >= FD_SETSIZE) {
 		return -ERANGE;
 	}
 	if(!poller->connections[fd]) {
@@ -118,7 +118,7 @@ int io_select_remove(io_select_poller *poller, io_atom *atom)
 {
 	int fd = atom->fd;
 
-	if(fd < 0 || fd > FD_SETSIZE) {
+	if(fd < 0 || fd >= FD_SETSIZE) {
 		return -ERANGE;
 	}
 	if(!poller->connections[fd]) {
