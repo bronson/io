@@ -198,11 +198,8 @@ int io_socket_accept(io_poller *poller, io_atom *io, io_proc read_proc, io_proc 
 
 /** Sets up a socket to listen on the given port.
  *
- * @param atom This should be the atom that will handle the events on
- * the socket.  It must be pre-allocated, and live for as long as the
- * socket will be listening.  You must fill in io_atom::proc before
- * calling this routine.  io_atom::fd will be filled in with the new
- * fd or -1 if there was an error.
+ * @param atom This should the uninitialized atom that will handle the events on
+ * the socket. 
  *
  * @returns the new fd.
  */
@@ -257,7 +254,13 @@ int io_socket_listen(io_poller *poller, io_atom *io, io_proc read_proc, socket_a
  *  original contents of the sock variable remain unchanged.
  *
  *  @returns NULL if no error, or an error string if an error was
- *  discovered.
+ *  discovered.  The error string is meant to be used as a format
+ *  string with spec passed as the single argument, i.e.
+ * 
+ *     result = io_parse_address(spec, sock);
+ *     if(result) {
+ *         fprintf(stderr, result, spec);
+ *     }
  */
 
 char* io_parse_address(const char *spec, socket_addr *sock)

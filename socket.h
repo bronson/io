@@ -4,6 +4,9 @@
  * whatever poller you decide to use.
  */
 
+#ifndef IO_SOCKET_H
+#define IO_SOCKET_H
+
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -92,3 +95,4 @@ int io_socket_listen(struct io_poller *poller, io_atom *io, io_proc accept_proc,
 
 char* io_parse_address(const char *spec, socket_addr *sock);
 
+#endif

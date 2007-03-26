@@ -1,3 +1,4 @@
+- Get rid of IO_READ and IO_WRITE?  I think it's a good idea.
 - Rename poller.h to io.h -- it's the .h file that should be included by everything.
 - The way you select a poller now (-DUSE_EPOLL, -DUSE_POLL, -DUSE_SELECT) is wack.
   Figure out how to sniff compiler #defines to figure out what pollers are available.

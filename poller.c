@@ -78,21 +78,21 @@ int io_poller_init(io_poller *poller, poller_type type)
 	
 #ifdef USE_MOCK
 	if(type & POLLER_MOCK) {
-		poller->poller_name = "select";
-		poller->funcs.dispose = (void*)io_select_poller_dispose;
-		poller->funcs.fd_check = (void*)io_select_fd_check;
-		poller->funcs.add = (void*)io_select_add;
-		poller->funcs.remove = (void*)io_select_remove;
-		poller->funcs.set = (void*)io_select_set;
-		poller->funcs.wait = (void*)io_select_wait;
-		poller->funcs.dispatch = (void*)io_select_dispatch;
+		poller->poller_name = "mock";
+		poller->funcs.dispose = (void*)io_mock_poller_dispose;
+		poller->funcs.fd_check = (void*)io_mock_fd_check;
+		poller->funcs.add = (void*)io_mock_add;
+		poller->funcs.remove = (void*)io_mock_remove;
+		poller->funcs.set = (void*)io_mock_set;
+		poller->funcs.wait = (void*)io_mock_wait;
+		poller->funcs.dispatch = (void*)io_mock_dispatch;
 		
 		poller->funcs.read = io_mock_read;
 		poller->funcs.write = io_mock_write;
 		poller->funcs.connect = io_mock_connect;
 		poller->funcs.accept = io_mock_accept;
 		poller->funcs.listen = io_mock_listen;
-		return io_select_init(&poller->poller_data.select);
+		return io_mock_init(&poller->poller_data.mock);
 	}
 #endif
 	
