@@ -36,7 +36,7 @@ typedef struct mock_atom {
 
 typedef struct io_mock_poller {
 	struct mock_event_tracker *current_event;
-	struct mock_event **event_sets;	///< the events that will be dispatched the next time io_wait is called.
+	const struct mock_event *event_sets;	///< the events that will be dispatched the next time io_wait is called.
 	int current_step;				///< monotonically increasing counter that increments each time wait is called.
 	int event_sets_remaining;		///< tells how many events remain in event_sets.
 	int events_handled_in_last_set;	///< a bitfield that tracks which events have been run.  if (1<<n) is set, then event n has been run.
