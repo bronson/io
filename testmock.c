@@ -44,7 +44,6 @@ static const mock_connection barney = {
 };
 
 
-/*
 // client
 static const mock_event_queue client_events = {
 	MAX_EVENTS_PER_SET, {
@@ -53,27 +52,43 @@ static const mock_event_queue client_events = {
 		{ EVENT, mock_connect, &alan, "127.0.0.1:6543" },
 	},
 	{
+		{ EVENT, mock_event_read, &alan },
 		{ EVENT, mock_read, &alan, MOCK_DATA("hi\n") },
+		{ EVENT, mock_write, &alan, MOCK_DATA("hi\n") },
+		{ EVENT, mock_read, &alan, MOCK_ERROR(EAGAIN) },
 	},
 	{
 		{ EVENT, mock_connect, &barney, "127.0.0.1:6543" },
+		
 		{ EVENT, mock_read, &alan, MOCK_DATA("ho\n") },
-	},
+		{ EVENT, mock_write, &alan, MOCK_DATA("ho\n") },
+		{ EVENT, mock_read, &alan, MOCK_ERROR(EAGAIN) },	},
 	{
+		{ EVENT, mock_event_read, &barney },
 		{ EVENT, mock_read, &barney, MOCK_DATA("hi, how are you?\n") },
+		{ EVENT, mock_write, &barney, MOCK_DATA("hi, how are you?\n") },
+		{ EVENT, mock_read, &barney, MOCK_ERROR(EAGAIN) },
 	},
 	{
-		{ EVENT, mock_reset, &alan },
+		{ EVENT, mock_event_read, &alan },
+		{ EVENT, mock_read, &alan, MOCK_DATA("") },	// close alan normally
+		{ EVENT, mock_close, &alan },
+		
+		{ EVENT, mock_event_read, &barney },
 		{ EVENT, mock_read, &barney, MOCK_DATA("oh foo.") },
+		{ EVENT, mock_write, &barney, MOCK_DATA("oh foo.") },
+		{ EVENT, mock_read, &barney, MOCK_ERROR(EAGAIN) },
 	},
 	{
-		{ EVENT, mock_close, &barney }
+		{ EVENT, mock_event_read, &barney },
+		{ EVENT, mock_read, &barney, MOCK_ERROR(ECONNRESET) },
+		{ EVENT, mock_close, &barney },
 	},
 	{
-		{ EVENT, mock_finished, NULL, NULL, 0 }		// null terminator
+		{ EVENT, mock_finished }		// null terminator
 	}
 }};
-*/
+
 
 // TODO: test connection refused.
 // TODO: if data == null, then routine returns the value in len as the error.
@@ -116,10 +131,11 @@ static const mock_event_queue server_events = {
 	},
 	{
 		{ EVENT, mock_event_read, &alan },
-		{ EVENT, mock_read, &alan, MOCK_ERROR(EPIPE) }		// close conn
+		{ EVENT, mock_read, &alan, MOCK_ERROR(EPIPE) },		// close conn
+		{ EVENT, mock_close, &alan }
 	},
 	{
-		{ EVENT, mock_finished, NULL, NULL, 0 }		// null terminator
+		{ EVENT, mock_finished }		// null terminator
 	}
 }};
 
@@ -287,6 +303,7 @@ int main(int argc, char **argv)
 
 	printf("Using %s to poll.\n", poller.poller_name);
 	
+	//io_mock_set_events(&poller, &client_events);	
 	io_mock_set_events(&poller, &server_events);
 
 	// We just hard-code the address and port when testing.

@@ -97,7 +97,9 @@ void io_mock_queue_write(io_poller *poller, int fd);
  */
 
 #define MOCK_DATA(str)	(str),sizeof(str)-1
-#define MOCK_ERROR(err)	NULL,(err)
+
+extern const char mock_error;
+#define MOCK_ERROR(err)	&mock_error,(err)
 
 // THIS MACRO ABSOLUTELY SUCKS!!  And so do the mock_event_types.
 // Should write macro opcodes to handle all this cruft...  TODO.
@@ -112,7 +114,8 @@ typedef enum {
 	mock_accept,		///> send a connection request to an application that called io_listen
 	mock_read,     		///> tells mock that the application will read some data without an event being posted (not sure why)
 	mock_write,			///> tells mock that the application will write some data even though no write event was posted (this is very common; most data is written in response to read events)
-
+	mock_close,			///> tells mock that the application will close the associated connection.
+	
 	// these cause events to be generated
 	mock_event_read,	///> tells mock to post a read event, but doesn't specify any data (this is probably always a mistake... tell me if you use this!)
 	mock_event_write,	///> tells mock to post a write event, but the application won't actually write any data.

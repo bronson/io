@@ -28,6 +28,10 @@ typedef struct mock_event_tracker {
 } mock_event_tracker;
 
 
+// This is just a unique value to stuff into a pointer to indicate an error.
+const char mock_error = 'M';
+
+
 // Converts an event pointer into its index in the current event set.
 // If the event is not a part of the current event set, this routine dies.
 static int get_event_no(io_mock_poller *poller, const mock_event *event)
@@ -575,7 +579,7 @@ static int is_error_event(io_mock_poller *poller, const mock_event *event, const
 {
 	// Current convention is that if data is NULL, then the len gives
 	// the error code.  That might change so always use is_error_event.
-	if(event->data == NULL) {
+	if(event->data == &mock_error) {
 		// We'll just mark this event used right now.  That way the caller
 		// doesn't have to worry about anything more; it can return the error
 		// immediately.
@@ -610,6 +614,13 @@ int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, s
 
 	err = is_error_event(poller, event, func);
 	if(err) return err;
+	
+	// special-case 0-length reads, which mean that the remote has closed.
+	if(event->data && event->len == 0) {
+		// This is just the IO Atom library's convention, but it makes
+		// sockets behave just like regular pipes.
+		return EPIPE;
+	}
 	
 	using_event(poller, event, &storage, func);
 	 	
@@ -816,19 +827,33 @@ int io_mock_listen(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 
 int io_mock_close(struct io_poller *base_poller, io_atom *io)
 {
+	static const char *func = "io_close";
 	io_mock_poller *poller = &base_poller->poller_data.mock;
 	mockfd *mfd;
+	const mock_event *event;
+	mock_event_tracker storage;
 	int err;
 
-	err = find_mockfd_by_atom(poller, io, &mfd, "io_remove");
+	err = find_mockfd_by_atom(poller, io, &mfd, func);
 	if(err != 0) {
 		return err;
 	}
 
-	info(poller, "io_close: closing fd %d", io->fd);
+	err = find_event_by_mockfd(poller, mfd, mock_close, &event, func);
+	if(err != 0) return err;
+
+	err = is_error_event(poller, event, func);
+	if(err) return err;
+
+	using_event(poller, event, &storage, func);
+
 	mock_fd_reset(mfd);
-	
 	io->fd = -1;
+
+	info(poller, "func: closing fd %d", io->fd);
+	
+	done_with_event(poller, &storage);
+
 	return 0;
 }
 
