@@ -10,16 +10,15 @@ DEFS=-DUSE_EPOLL -DUSE_MOCK
 
 all: testclient testserver
 
-iotest: iotest.c atom.c atom.h poller.c poller.h socket.c socket.h pollers/select.c pollers/select.h Makefile
-	$(CC) $(COPTS) $(DEFS) iotest.c atom.c poller.c socket.c pollers/select.c pollers/poll.c pollers/epoll.c -o iotest
-
-
 CSRC=atom.c poller.c socket.c
 CHDR=atom.h poller.h socket.h
 CSRC+=pollers/select.c pollers/poll.c pollers/epoll.c pollers/mock.c
 CSRC+=pollers/select.h pollers/poll.h pollers/epoll.h pollers/mock.h
 
 all: testclient testserver
+
+iotest: iotest.c $(CSRC) $(CHDR) Makefile
+	$(CC) $(COPTS) $(DEFS) $(CSRC) iotest.c -o iotest
 
 testclient: testclient.c $(CSRC) $(CHDR) Makefile
 	$(CC) $(COPTS) $(DEFS) $(CSRC) testclient.c -o testclient

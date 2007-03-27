@@ -78,28 +78,44 @@ static const mock_event_queue client_events = {
 // TODO: test connection refused.
 // TODO: if data == null, then routine returns the value in len as the error.
 // TODO: how do I find the size of this queue so I don't have to null-terminate it?
+// TODO: we're a little too cavalier when finding events to handle...  If the events
+//    specify read FH1, write FH1, but the app checks for the write first, it will
+//    find it!  We need to restrict events by connection, not by type.  But that's 
+//    a lote more code for a rather unclear gain...  (in other words, it doesn't
+//    matter what order read and write events occur in in relation to each other in
+//    an event set.  But it should!)
+
+// You can disable an event by setting it to mock_nop.  All other events
+// in the set will still be handled.
+
 static const mock_event_queue server_events = {
 	MAX_EVENTS_PER_SET, {
-	{ 
+	{ // wait 0   (i.e. io_wait hasn't been called yet)
+		// TODO: what should we do about the address being duplicated
+		// both here and in the connection record itself?  Probably
+		// leave it in the conenction record and just ignore this?
 		{ EVENT, mock_listen, &listener, "127.0.0.1:6543" },
 	},
-	{	
-		{ EVENT, mock_event_read, &listener, NULL, 0 },
+	{ // wait 1    (io_wait has been called once)
+		{ EVENT, mock_event_read, &listener },
 		{ EVENT, mock_accept, &alan, "127.0.0.1:6543" },
 	},
-	{
-		{ EVENT, mock_event_read, NULL, 0 },
+	{ // wait 2
+		{ EVENT, mock_event_read, &alan },
 		{ EVENT, mock_read, &alan, MOCK_DATA("hi\n") },
-		{ EVENT, mock_read, &alan, MOCK_ERROR(EAGAIN) },
 		{ EVENT, mock_write, &alan, MOCK_DATA("hi\n") },
-	},
-	{
-		{ EVENT, mock_event_read, NULL, 0 },
-		{ EVENT, mock_read, &alan, MOCK_DATA("ho\n") },
 		{ EVENT, mock_read, &alan, MOCK_ERROR(EAGAIN) },
+	},
+	{ // ...etc.
+		{ EVENT, mock_event_read, &alan },
+		{ EVENT, mock_read, &alan, MOCK_DATA("ho\n") },
 		{ EVENT, mock_write, &alan, MOCK_DATA("ho\n") },
+		{ EVENT, mock_read, &alan, MOCK_DATA("hee\n") },
+		{ EVENT, mock_write, &alan, MOCK_DATA("hee\n") },
+		{ EVENT, mock_read, &alan, MOCK_ERROR(EAGAIN) },
 	},
 	{
+		{ EVENT, mock_event_read, &alan },
 		{ EVENT, mock_read, &alan, MOCK_ERROR(EPIPE) }		// close conn
 	},
 	{
@@ -163,9 +179,7 @@ void connection_read_proc(io_poller *poller, io_atom *ioa)
 		}
 
 		// close the connection, free its memory
-		io_remove(poller, &conn->io);
-		close(conn->io.fd);
-		conn->io.fd = -1;
+		io_close(poller, &conn->io);
 		free(conn);
 	}
 

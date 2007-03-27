@@ -108,7 +108,7 @@ typedef struct io_atom io_atom;
 #define io_atom_init(io,ff,ppr,ppw) ((io)->fd=(ff),(io)->read_proc=(ppr),(io)->write_proc=(ppw))
 
 
-/** Reads data from a socket.
+/** Reads data from a file or socket.
  *
  * This routine handles strange boundary cases like re-trying a read that
  * was interrupted by a signal and returning an error when the remote
@@ -130,10 +130,15 @@ typedef struct io_atom io_atom;
 int io_atom_read(struct io_poller *poller, io_atom *io, char *buf, size_t cnt, size_t *len);
 
 
-/** Writes data to a socket
+/** Writes data to a file or socket
  */
 
 int io_atom_write(struct io_poller *poller, io_atom *io, const char *buf, size_t cnt, size_t *len);
+
+/** Removes the atom from the poller and closes its file or socket.
+ */
+
+int io_atom_close(struct io_poller *poller, io_atom *io);
 
 
 /** Just a utility function.  This routine tries to parse an integer

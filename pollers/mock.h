@@ -38,6 +38,7 @@ typedef struct io_mock_poller {
 	struct mock_event_tracker *current_event;
 	const struct mock_event *event_sets;	///< the events that will be dispatched the next time io_wait is called.
 	int current_step;				///< monotonically increasing counter that increments each time wait is called.
+	int current_event_set;			///< tells which event set we're currently on.  Gets reset every time you add more events using io_mock_set_events().
 	int event_sets_remaining;		///< tells how many events remain in event_sets.
 	int events_handled_in_last_set;	///< a bitfield that tracks which events have been run.  if (1<<n) is set, then event n has been run.
 	int num_events_in_last_set;		///< the number of events in the previous event set.  Ensures all events from previous set have been run before we start on the next set.
@@ -52,7 +53,7 @@ int io_mock_fd_check(io_mock_poller *poller);
 int io_mock_add(io_mock_poller *poller, io_atom *atom, int flags);
 int io_mock_set(io_mock_poller *poller, io_atom *atom, int flags);
 int io_mock_remove(io_mock_poller *poller, io_atom *atom);
-int io_mock_wait(struct io_poller *poller, unsigned int timeout);
+int io_mock_wait(io_mock_poller *poller, unsigned int timeout);
 int io_mock_dispatch(struct io_poller *poller);
 
 int io_mock_read(struct io_poller *poller, struct io_atom *io, char *buf, size_t cnt, size_t *readlen);
@@ -60,6 +61,7 @@ int io_mock_write(struct io_poller *poller, struct io_atom *io, const char *buf,
 int io_mock_connect(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags);
 int io_mock_accept(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote);
 int io_mock_listen(struct io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local);
+int io_mock_close(struct io_poller *base_poller, io_atom *io);
 
 
 /*

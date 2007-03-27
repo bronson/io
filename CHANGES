@@ -1,5 +1,7 @@
 - Split the static mock events into a mocker api and a static mocker.  That allows us to read mock events from files later.
+  Mostly it allows us to isolate the awful hacks in the current code behind a clean API.
 - Get rid of IO_READ and IO_WRITE?  I think it's a good idea.
+- get rid of io_add and io_remove...  They should be handled automatically by all other calls.
 - Rename poller.h to io.h -- it's the .h file that should be included by everything.
 - The way you select a poller now (-DUSE_EPOLL, -DUSE_POLL, -DUSE_SELECT) is wack.
   Figure out how to sniff compiler #defines to figure out what pollers are available.
@@ -15,6 +17,7 @@
     Of course... probably want to leave the ipv4 hooks around too, since not everything is ipv6 yet?
 
 
+* Added io_close.  This allows mock fds to close without closing, say, stdout.
 * Made io_socket_connect_fd private again.  To replace its usage, create an automatic
   io_atom on the stack, call io_socket_connect with that atom, then copy the atom
   into the final structure when it's ready.  Just trying to reduce the API.

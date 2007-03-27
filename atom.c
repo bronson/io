@@ -113,6 +113,17 @@ int io_atom_write(struct io_poller *poller, io_atom *io, const char *buf, size_t
 }
 
 
+int io_atom_close(struct io_poller *poller, io_atom *io)
+{
+	int fd;
+	
+	io_remove(poller, io);
+	fd = io->fd;
+	io->fd = -1;
+	return close(fd);
+}
+
+
 /** 
  * Converts a string into an integer.
  * 

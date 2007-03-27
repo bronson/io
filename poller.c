@@ -30,6 +30,7 @@ int io_poller_init(io_poller *poller, poller_type type)
 	poller->funcs.connect = io_socket_connect;
 	poller->funcs.accept = io_socket_accept;
 	poller->funcs.listen = io_socket_listen;
+	poller->funcs.close = io_atom_close;
 
 #ifdef USE_EPOLL
 	if(type & POLLER_EPOLL) {
@@ -92,6 +93,7 @@ int io_poller_init(io_poller *poller, poller_type type)
 		poller->funcs.connect = io_mock_connect;
 		poller->funcs.accept = io_mock_accept;
 		poller->funcs.listen = io_mock_listen;
+		poller->funcs.close = io_mock_close;
 		return io_mock_init(&poller->poller_data.mock);
 	}
 #endif

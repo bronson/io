@@ -85,9 +85,7 @@ void connection_read_proc(io_poller *poller, io_atom *ioa)
 		}
 
 		// close the connection, free its memory
-		io_remove(poller, &conn->io);
-		close(conn->io.fd);
-		conn->io.fd = -1;
+		io_close(poller, &conn->io);
 		free(conn);
 	}
 

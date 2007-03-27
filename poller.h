@@ -25,8 +25,8 @@
 
 
 #if !(defined(USE_SELECT) || defined(USE_POLL) || defined(USE_EPOLL))
+// lowest common denominator, available on all platforms
 #define USE_SELECT
-#define USE_MOCK
 #endif
 
 #ifdef USE_SELECT
@@ -76,6 +76,7 @@ struct poller_funcs {
 	int (*connect)(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags);
 	int (*accept)(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote);
 	int (*listen)(struct io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local);
+	int (*close)(struct io_poller *poller, io_atom *io);
 };
 
 
@@ -120,4 +121,5 @@ int io_poller_init(io_poller *poller, poller_type type);
 #define io_connect(a,io,rp,wp,ra,f)   (*(a)->funcs.connect)(a,io,rp,wp,ra,f)
 #define io_accept(a,io,rp,wp,f,l,r)   (*(a)->funcs.accept)(a,io,rp,wp,f,l,r)
 #define io_listen(a,io,rp,l)          (*(a)->funcs.listen)(a,io,rp,l)
+#define io_close(a,io)      (*(a)->funcs.close)(a,io)
 

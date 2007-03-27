@@ -34,9 +34,6 @@ static int get_event_no(io_mock_poller *poller, const mock_event *event)
 {
 	long l = (event - poller->event_sets);
 	
-	// this is not a necessary assumption but it appears to always be true...
-	assert(event == poller->current_event->event);
-	
 	if(l < 0 || l >= poller->event_set_size) {
 		// can't use die because die calls this routine
 		fprintf(stderr, "get_event_no: tried to find number of event %p from %p and got %ld?!\n",
@@ -48,18 +45,44 @@ static int get_event_no(io_mock_poller *poller, const mock_event *event)
 }
 
 
+// NOTE: event must be in the currently-executing set.
+static const char *describe_event(io_mock_poller *poller, const mock_event *event)
+{
+	static char buf[512];
+	
+	snprintf(buf, sizeof(buf), "event %d set %d at %s:%d",
+			get_event_no(poller,event), poller->current_event_set,
+			event->file, event->line);
+	
+	return buf;
+}
+
+
+static const char *describe_set(io_mock_poller *poller)
+{
+	static char buf[512];
+	
+	snprintf(buf, sizeof(buf), "set %d at %s:%d",
+			poller->current_event_set,
+			poller->event_sets[0].file, poller->event_sets[0].line);
+	
+	return buf;
+}
+
+
 static void mock_vmsg(io_mock_poller *poller, FILE *file, const char *fmt, va_list ap)
 {
 	mock_event_tracker *cur;
 	
-	fprintf(file, "step %d: ", poller->current_step);
+	fprintf(file, "wait %d: ", poller->current_step);
 	vfprintf(file, fmt, ap);
 	fprintf(file, "\n");
 
 	for(cur = poller->current_event; cur; cur = cur->next) {
-		fprintf(file, "   as part of %s:%d event %d\n",
-				cur->event->file, cur->event->line,
-				get_event_no(poller, cur->event));
+		fprintf(file, "   while handling event %d from set %d at %s:%d\n",
+				get_event_no(poller, cur->event),
+				poller->current_event_set,
+				cur->event->file, cur->event->line);
 	}
 }
 
@@ -156,6 +179,8 @@ static mockfd* find_mockfd_by_connection(io_mock_poller *poller, const mock_conn
 {
 	int i;
 	
+	assert(conn);
+	
 	// a linear search through the fds each time...  arg.
 	// this sucks, but anything else is overkill.
 	for(i=0; i<MAX_MOCK_FDS; i++) {
@@ -190,7 +215,7 @@ static int find_mockfd_by_atom(io_mock_poller *poller, const io_atom *io, mockfd
 
 
 // Given a socket address, this routine finds the first unused mock_listen or mock_connect event associated with that address.
-static int find_event_by_socket_addr(io_mock_poller *poller, const socket_addr inaddr, const mock_event **event, const char *func)
+static int find_event_by_socket_addr(io_mock_poller *poller, const socket_addr inaddr, mock_event_type restrict_type, const mock_event **event, const char *func)
 {
 	socket_addr tmpaddr;
 	const char *errstr;
@@ -198,9 +223,7 @@ static int find_event_by_socket_addr(io_mock_poller *poller, const socket_addr i
 	
 	num_previous_events = 0;
 	for(i=0; i<poller->event_set_size; i++) {
-		switch(poller->event_sets[i].event_type) {
-		case mock_listen:
-		case mock_connect:
+		if(poller->event_sets[i].event_type == restrict_type) {
 			errstr = io_parse_address(poller->event_sets[i].data, &tmpaddr);
 			if(errstr) {
 				die(poller, errstr, poller->event_sets[i].data);
@@ -217,12 +240,6 @@ static int find_event_by_socket_addr(io_mock_poller *poller, const socket_addr i
 					return 0;
 				}
 			}
-			break;
-		
-		default:
-			// no need to do anything because this event doesn't contain
-			// a socket addresss.
-			break;
 		}
 	}
 
@@ -236,15 +253,13 @@ static int find_event_by_socket_addr(io_mock_poller *poller, const socket_addr i
 
 // Given an mfd, finds the first unused event associated with it.
 // (finds the first unused event with the same connection as the mfd)
-static int find_event_by_mockfd(io_mock_poller *poller, mockfd *mfd, const mock_event **event, const char *func)
+static int find_event_by_mockfd(io_mock_poller *poller, mockfd *mfd, mock_event_type restrict_type, const mock_event **event, const char *func)
 {
 	int i, num_previous_events;
 
 	num_previous_events = 0;
 	for(i=0; i<poller->event_set_size; i++) {
-		switch(poller->event_sets[i].event_type) {		
-		case mock_listen: case mock_connect: case mock_accept:
-		case mock_read: case mock_write:
+		if(poller->event_sets[i].event_type == restrict_type) {		
 			if(poller->event_sets[i].remote == mfd->remote) {
 				if(poller->events_handled_in_last_set & (1<<i)) {
 					// found a matching event but it's already been used... keep searching.
@@ -255,17 +270,11 @@ static int find_event_by_mockfd(io_mock_poller *poller, mockfd *mfd, const mock_
 					return 0;		
 				}
 			}
-			break;
-
-		default:
-			// none of these other events use the mfd.
-			break;
 		}
 	}
 	
-	die(poller, "%s: could not find unused event corresponding to connection %s "
-			"(%d matching events were previously handled)", func,
-			mfd->remote->name, num_previous_events);
+	die(poller, "%s: could not find unused event corresponding to connection %s ",
+			func, mfd->remote->name);
 	
 	return -1;
 
@@ -296,7 +305,9 @@ int io_mock_init(io_mock_poller *poller)
 
 int io_mock_poller_dispose(io_mock_poller *poller)
 {
-	// TODO: ensure all connections are closed.
+	// TODO: check for and warn about any FDs still open.
+	// (that will require fixing io_fd_check first)
+	// see mock_test_is_finished below for a caller in a similar situation.
 	
 	info(poller, "Disposed of mock poller %p.", poller);
 	return 0;
@@ -365,7 +376,6 @@ int io_mock_remove(io_mock_poller *poller, io_atom *io)
 
 static void check_that_all_events_were_handled(io_mock_poller *poller)
 {
-	char num[32];
 	char str[1024];
 	int i;
 	
@@ -376,40 +386,25 @@ static void check_that_all_events_were_handled(io_mock_poller *poller)
 
 	// not all events were handled...  generate a readable error message.
 	str[0] = '\0';
-	for(i=0; i<poller->event_set_size; i++) {
+	for(i=0; i<poller->num_events_in_last_set; i++) {
 		if(!((1<<i) & poller->events_handled_in_last_set)) {
-			snprintf(num, sizeof(num), "%d", i);
 			if(str[0] != '\0') {
-				strncat(str, ",", sizeof(str)-1);
+				strncat(str, ", ", sizeof(str)-1);
 			}
-			strncat(str, num, sizeof(str)-1);
+			strncat(str, describe_event(poller, &poller->event_sets[i]), sizeof(str)-1);
 		}
 	}
 
-	die(poller, "io_wait: application didn't handle all %d events in last set!  missed: %s",
-			poller->num_events_in_last_set, str);
+	die(poller, "io_wait: application didn't handle all %d events in %s, missed: %s",
+			poller->num_events_in_last_set, describe_set(poller), str);
 }
 
 
-int io_mock_wait(io_poller *base_poller, unsigned int timeout)
+static int prepare_next_step(io_mock_poller *poller)
 {
-	io_mock_poller *poller = &base_poller->poller_data.mock;
 	int i, dispatched_count, total_count;
 	mock_event_type type;
-	
-	if(!poller->event_sets) {
-		fprintf(stderr, "io_wait has no events!");
-		exit(1);
-	}
-	
-	// We want to ensure that all events have been used up (i.e. client
-	// app didn't forget to read or write some data).  Since
-	// we can't mark the events themselves, we'll just keep a count.
-	check_that_all_events_were_handled(poller);
 
-	poller->current_step += 1;
-	info(poller, "io_wait: now on step %d", poller->current_step);
-	
 	// count the number of events in the upcoming event set.
 	dispatched_count = total_count = 0;
 	for(i=0; i<poller->event_set_size; i++) {
@@ -424,8 +419,50 @@ int io_mock_wait(io_poller *base_poller, unsigned int timeout)
 	
 	poller->events_handled_in_last_set = 0;
 	poller->num_events_in_last_set = total_count;
-	
+
 	return dispatched_count;
+}
+
+static void mock_test_is_finished(io_mock_poller *poller, const mock_event *event)
+{
+	// TODO: check for and warn about any FDs still open.
+	// (that will require fixing io_fd_check first)
+	
+	// It's sub-optimal if we hit this.  It would be a lot better
+	// if the user inserts events into the queue that cause his
+	// application to quit on its own.  But, since that's not always
+	// realistic, we'll allow bailing out here.
+	
+	info(poller, "io_mock_wait: hit mock_finished event at %s",
+			describe_event(poller, event));
+	exit(0);
+}
+
+int io_mock_wait(io_mock_poller *poller, unsigned int timeout)
+{	
+	if(!poller->event_sets) {
+		fprintf(stderr, "io_wait has no events!");
+		exit(1);
+	}
+	
+	// We want to ensure that all events have been used up (i.e. client
+	// app didn't forget to read or write some data).  Since
+	// we can't mark the events themselves, we'll just keep a count.
+	check_that_all_events_were_handled(poller);
+
+	poller->current_step += 1;
+	poller->current_event_set += 1;
+	poller->event_sets_remaining -= 1;
+	poller->event_sets += poller->event_set_size;
+	
+	if(poller->event_sets[0].event_type == mock_finished) {
+		// This event set is done.
+		// TODO: offer the client the ability to insert more events.
+		mock_test_is_finished(poller, &poller->event_sets[0]);
+	}
+	
+	info(poller, "io_wait: now on io_wait %d", poller->current_step);
+	return prepare_next_step(poller);
 }
 
 
@@ -466,7 +503,8 @@ static int dispatch_atom(struct io_poller *base_poller, const mock_event *event,
 	using_event(poller, event, &storage, "io_dispatch");
 	
 	if(!(mfd->flags & flag)) {
-		die(poller, "mock write event but atom's write events aren't enabled!");
+		die(poller, "event %d contains a %s event but atom's %s events aren't enabled!",
+				get_event_no(poller, event), op, op);
 	}
 	
 	/* STEPSTEP
@@ -479,7 +517,11 @@ static int dispatch_atom(struct io_poller *base_poller, const mock_event *event,
 	*/
 	
 	info(poller, "io_dispatch: dispatching %s event on %d", op, mfd->io->fd);
-	(*mfd->io->write_proc)(base_poller, mfd->io);
+	if(flag & IO_READ) {
+		(*mfd->io->read_proc)(base_poller, mfd->io);
+	} else {
+		(*mfd->io->write_proc)(base_poller, mfd->io);
+	}
 	
 	done_with_event(poller, &storage);
 
@@ -492,36 +534,57 @@ int io_mock_dispatch(struct io_poller *base_poller)
 	io_mock_poller *poller = &base_poller->poller_data.mock;
 	const mock_event *event;
 	mockfd *mfd;
-	int i, type, err;
+	int i, err;
 	
 	for(i=0; i<poller->event_set_size; i++) {
 		event = &poller->event_sets[i];
-		mfd = find_mockfd_by_connection(poller, event->remote);
-		if(!mfd) {
-			die(poller, "io_mock_dispatch: unknown connection %s, has it been opened or added yet?",
-					event->remote->name);
-		}
-		
-		switch(type) {
-		case mock_event_read:
-			err = dispatch_atom(base_poller, event, mfd, IO_READ);
-			break;
-		case mock_event_write:
-			err = dispatch_atom(base_poller, event, mfd, IO_WRITE);
-			break;
-		default:
-			// This "event" doesn't involve anything actually
-			// being dispatched to the io_atom's callbacks.
-			break;
-		}
-		
-		if(err) {
-			return err;
+		if(is_dispatched_mock_event(event->event_type)) {
+			if(!event->remote) {
+				die(poller, "io_dispatch: dispatched %s has NULL connection.  You must specify a connection to receive the event.", describe_event(poller, event));
+			}
+			mfd = find_mockfd_by_connection(poller, event->remote);
+			if(!mfd) {
+				die(poller, "io_dispatch: unknown connection %s, has it been opened or added yet?", event->remote->name);
+			}
+
+			switch(event->event_type) {
+			case mock_event_read:
+				err = dispatch_atom(base_poller, event, mfd, IO_READ);
+				break;
+			case mock_event_write:
+				err = dispatch_atom(base_poller, event, mfd, IO_WRITE);
+				break;
+			default:
+				// This "event" doesn't involve anything actually
+				// being dispatched to the io_atom's callbacks.
+				break;
+			}
+
+			if(err) {
+				return err;
+			}
 		}
 	}
 	
-	poller->event_sets_remaining -= 1;
-	poller->event_sets += poller->event_set_size;
+	return 0;
+}
+
+
+// Returns true if this event specifies that an error should be returned.
+static int is_error_event(io_mock_poller *poller, const mock_event *event, const char *func)
+{
+	// Current convention is that if data is NULL, then the len gives
+	// the error code.  That might change so always use is_error_event.
+	if(event->data == NULL) {
+		// We'll just mark this event used right now.  That way the caller
+		// doesn't have to worry about anything more; it can return the error
+		// immediately.
+		poller->events_handled_in_last_set |= 1<<get_event_no(poller,event);
+		
+		info(poller, "%s: returning error %d (%s) as specified by %s", func,
+				event->len, strerror(event->len), describe_event(poller, event));
+		return event->len;
+	}
 	
 	return 0;
 }
@@ -529,6 +592,7 @@ int io_mock_dispatch(struct io_poller *base_poller)
 
 int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, size_t cnt, size_t *readlen)
 {
+	static const char *func = "io_read";
 	io_mock_poller *poller = &base_poller->poller_data.mock;
 	mock_event_tracker storage;
 	mockfd *mfd;
@@ -537,21 +601,27 @@ int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, s
 	
 	*readlen = 0;
 	
-	err = find_mockfd_by_atom(poller, io, &mfd, "io_read");
+	err = find_mockfd_by_atom(poller, io, &mfd, func);
 	if(err != 0) return err;
 	assert(!mfd->is_listener);
 	
-	err = find_event_by_mockfd(poller, mfd, &event, "io_read");
+	err = find_event_by_mockfd(poller, mfd, mock_read, &event, func);
 	if(err != 0) return err;
 
-	using_event(poller, event, &storage, "io_read");
+	err = is_error_event(poller, event, func);
+	if(err) return err;
 	
+	using_event(poller, event, &storage, func);
+	 	
 	if(cnt < event->len) {
-		die(poller, "io_read: event data (%d) was larger than read buffer (%d)!",
-				event->len, (int)cnt);
+		die(poller, "%s: event data (%d) was larger than read buffer (%d)!",
+				func, event->len, (int)cnt);
+	}
+	if(cnt > event->len) {
+		cnt = event->len;
 	}
 	
-	info(poller, "io_read: read %d bytes into fd %d", cnt, mfd->io->fd);
+	info(poller, "%s: read %d bytes from fd %d", func, cnt, mfd->io->fd);
 
 	memcpy(buf, event->data, cnt);
 	*readlen = cnt;
@@ -562,6 +632,7 @@ int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, s
 
 int io_mock_write(struct io_poller *base_poller, struct io_atom *io, const char *buf, size_t cnt, size_t *wrlen)
 {
+	static const char *func = "io_write";
 	io_mock_poller *poller = &base_poller->poller_data.mock;
 	mock_event_tracker storage;
 	mockfd *mfd;
@@ -570,26 +641,30 @@ int io_mock_write(struct io_poller *base_poller, struct io_atom *io, const char 
 
 	*wrlen = 0;
 	
-	err = find_mockfd_by_atom(poller, io, &mfd, "io_write");
+	err = find_mockfd_by_atom(poller, io, &mfd, func);
 	if(err != 0) return err;
 	assert(!mfd->is_listener);
 	
-	err = find_event_by_mockfd(poller, mfd, &event, "io_write");
+	err = find_event_by_mockfd(poller, mfd, mock_write, &event, func);
 	if(err != 0) return err;
 
-	using_event(poller, event, &storage, "io_write");
+	err = is_error_event(poller, event, func);
+	if(err) return err;
+
+	using_event(poller, event, &storage, func);
 
 	if(cnt > event->len) {
-		die(poller, "io_write: event data %d was larger than write buffer %d!",
-				event->len, (int)cnt);
+		die(poller, "%s: event data %d was larger than write buffer %d!",
+				func, event->len, (int)cnt);
 	}
 	
 	if(memcmp(buf, event->data, event->len)) {
-		die(poller, "io_write: event data was different.  evt=%s buf=%s",
-				event->data, buf);
+		die(poller, "%s: event data was different.  evt=%s buf=%s",
+				func, event->data, buf);
 	}
 	
-	info(poller, "io_write: wrote %d bytes into fd %d", event->len, mfd->io->fd);
+	info(poller, "%s: wrote %d bytes to fd %d",
+			func, event->len, mfd->io->fd);
 	
 	*wrlen = event->len;
 	done_with_event(poller, &storage);
@@ -599,12 +674,13 @@ int io_mock_write(struct io_poller *base_poller, struct io_atom *io, const char 
 
 int io_mock_connect(struct io_poller *base_poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags)
 {
+	static const char *func = "io_connect";
 	io_mock_poller *poller = &base_poller->poller_data.mock;
 	mock_event_tracker storage;
 	const mock_event *event;
 	int fd, err;
 	
-	err = find_event_by_socket_addr(poller, remote, &event, "io_connect");
+	err = find_event_by_socket_addr(poller, remote, mock_connect, &event, func);
 	if(err < 0) {
 		return err;
 	}
@@ -613,14 +689,17 @@ int io_mock_connect(struct io_poller *base_poller, io_atom *io, io_proc read_pro
 	assert(poller->mockfds[fd].remote->type == mock_socket);
 	assert(!poller->mockfds[fd].is_listener);
 	
-	using_event(poller, event, &storage, "io_connect");
+	err = is_error_event(poller, event, func);
+	if(err) return err;
+
+	using_event(poller, event, &storage, func);
 	
 	fd = mock_open(poller);
 	io_atom_init(io, fd, read_proc, write_proc);
 	mock_fd_install(poller, fd, io, event->remote, flags, 0);
 	
-	info(poller, "io_connect: opened fd %d to %s:%d",
-			fd, inet_ntoa(remote.addr), remote.port);
+	info(poller, "%s: opened fd %d to %s:%d",
+			func, fd, inet_ntoa(remote.addr), remote.port);
 
 	done_with_event(poller, &storage);
 	
@@ -628,55 +707,74 @@ int io_mock_connect(struct io_poller *base_poller, io_atom *io, io_proc read_pro
 }
 
 
+void parse_socket_address(io_mock_poller *poller, socket_addr *saddr, const char *str)
+{
+	const char *errstr;
+
+	// find address where connection is originating from.
+	saddr->addr.s_addr = htonl(INADDR_ANY);
+	saddr->port = -1;
+	
+	errstr = io_parse_address(str, saddr);
+	if(errstr) {
+		die(poller, errstr, str);
+	}
+	
+	if(saddr->port == -1) {
+		die(poller, "port number is required but one wasn't found in %s!", str);
+	}
+}
+
+
 int io_mock_accept(struct io_poller *base_poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote)
 {
+	static const char *func = "io_accept";
 	io_mock_poller *poller = &base_poller->poller_data.mock;
 	mock_event_tracker storage;
 	const mock_event *event;
 	int fd, err;
 	mockfd *mfd;
-	const char *errstr;
-	socket_addr origin;
+	socket_addr toaddr, fromaddr;
+	char buf[512];
 	
-	err = find_mockfd_by_atom(poller, io, &mfd, "io_accept");
+	err = find_mockfd_by_atom(poller, listener, &mfd, func);
 	if(err != 0) return err;
 	
 	if(!mfd->is_listener) {
-		die(poller, "Called io_accept on %s without first calling io_listen!",
-				mfd->remote->name);
+		die(poller, "Called %s on %s without first calling io_listen!",
+				func, mfd->remote->name);
 	}
 	
-	err = find_event_by_mockfd(poller, mfd, &event, "io_accept");
+	parse_socket_address(poller, &toaddr, mfd->remote->source_address);
+	err = find_event_by_socket_addr(poller, toaddr, mock_accept, &event, func);
 	if(err != 0) return err;
+	
+	if(!mfd->is_listener) {
+		die(poller, "%s but connection %s is not listening!?", func, mfd->remote->name);
+	}
 	
 	assert(event->remote->type == mock_socket);
 	assert(mfd->remote->type == mock_socket);
-	assert(mfd->is_listener);
 	
-	using_event(poller, event, &storage, "io_accept");
+	err = is_error_event(poller, event, func);
+	if(err) return err;
 	
+	using_event(poller, event, &storage, func);
+
 	fd = mock_open(poller);
 	io_atom_init(io, fd, read_proc, write_proc);
 	mock_fd_install(poller, fd, io, event->remote, flags, 0);
-	
-	// find address where connection is originating from.
-	origin.addr.s_addr = htonl(INADDR_ANY);
-	origin.port = -1;
-	errstr = io_parse_address(event->remote->source_address, &origin);
-	if(errstr) {
-		die(poller, errstr, event->remote->source_address);
-	}
-	if(origin.port == -1) {
-		die(poller, "Connection %s didn't provide a origin port number: %s!",
-				event->remote->name, event->remote->source_address);
-	}
-		
+
+	parse_socket_address(poller, &fromaddr, event->remote->source_address);		
 	if(remote) {
-		*remote = origin;
+		*remote = fromaddr;
 	}
 
-	info(poller, "io_accept: opened fd %d for inbound connection to %s:%d from %s:%d",
-			fd, inet_ntoa(remote->addr), remote->port);
+	// hack to get around inet_ntoa's use of a static buffer...
+	strncpy(buf, inet_ntoa(toaddr.addr), sizeof(buf));
+	buf[sizeof(buf)-1] = '\0';
+	info(poller, "%s: opened fd %d for inbound connection to %s:%d from %s:%d",
+			func, fd, buf, toaddr.port, inet_ntoa(fromaddr.addr), fromaddr.port);
 	
 	done_with_event(poller, &storage);
 	return 0;
@@ -685,30 +783,52 @@ int io_mock_accept(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 
 int io_mock_listen(struct io_poller *base_poller, io_atom *io, io_proc read_proc, socket_addr local)
 {
+	static const char *func = "io_listen";
 	io_mock_poller *poller = &base_poller->poller_data.mock;
 	mock_event_tracker storage;
 	const mock_event *event;
 	int fd, err;
 	
-	err = find_event_by_socket_addr(poller, local, &event, "io_listen");
+	err = find_event_by_socket_addr(poller, local, mock_listen, &event, func);
 	if(err < 0) {
 		return err;
 	}
 
 	assert(event->remote->type == mock_socket);	
-	using_event(poller, event, &storage, "io_listen");
+	using_event(poller, event, &storage, func);
+
+	err = is_error_event(poller, event, func);
+	if(err) return err;
 
 	fd = mock_open(poller);
+	assert(!poller->mockfds[fd].is_listener);  // if this is true then we'd already called io_listen on this atom?!
 	io_atom_init(io, fd, read_proc, NULL);
 	mock_fd_install(poller, fd, io, event->remote, IO_READ, 1);
-	
 	assert(poller->mockfds[fd].remote->type == mock_socket);
-	assert(!poller->mockfds[fd].is_listener);  // if this is true then we'd already called io_listen on this atom?!
-	
-	info(poller, "io_listen: opened fd %d listening on %s",
-			fd, event->remote->source_address);
+		
+	info(poller, "%s: opened fd %d listening on %s",
+			func, fd, event->remote->source_address);
 
 	done_with_event(poller, &storage);
+	return 0;
+}
+
+
+int io_mock_close(struct io_poller *base_poller, io_atom *io)
+{
+	io_mock_poller *poller = &base_poller->poller_data.mock;
+	mockfd *mfd;
+	int err;
+
+	err = find_mockfd_by_atom(poller, io, &mfd, "io_remove");
+	if(err != 0) {
+		return err;
+	}
+
+	info(poller, "io_close: closing fd %d", io->fd);
+	mock_fd_reset(mfd);
+	
+	io->fd = -1;
 	return 0;
 }
 
@@ -742,6 +862,9 @@ int io_mock_set_events(io_poller *base_poller, const mock_event_queue *events)
 	poller->event_set_size = events->max_events_per_set;
 	poller->event_sets = &events->events[0][0];
 	poller->event_sets_remaining = n_events;
+	poller->current_event_set = 0;
+	
+	prepare_next_step(poller);
 	
 	return 0;
 }
