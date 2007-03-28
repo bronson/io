@@ -2,23 +2,29 @@
 // Scott Bronson
 // 10 Mar 2007		(based on socktest.c)
 //
-// Listens on the ports you specify, echoes data back at each socket
-// that connects.
+// shows how to create either a client or a server (or both),
+// and how to seamlessly embed mock tests to test them.
+//
+// Usage: specify one or more of:
+//   --client=ADDR   initiate a connection to ADDR
+//   --server=ADDR   listen for connections on ADDR
+// All connections just echo the data they receive.
+// Modify connection_read_proc to change this.
+//   --mock=client to run the mock client tests,
+//   --mock=server to run the mock server tests.
 
-
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <values.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
+#include <getopt.h>
 #include "poller.h"
+
+
+// set by the command-line options
+int opt_mock_client, opt_mock_server;
 
 
 #define DEFAULT_PORT 6543
@@ -50,6 +56,7 @@ static const mock_event_queue client_events = {
 	{ 
 		// client a requests a connection
 		{ EVENT, mock_connect, &alan, "127.0.0.1:6543" },
+		{ EVENT, mock_connect, &barney, "127.0.0.1:6543" },
 	},
 	{
 		{ EVENT, mock_event_read, &alan },
@@ -57,13 +64,11 @@ static const mock_event_queue client_events = {
 		{ EVENT, mock_write, &alan, MOCK_DATA("hi\n") },
 		{ EVENT, mock_read, &alan, MOCK_ERROR(EAGAIN) },
 	},
-	{
-		{ EVENT, mock_connect, &barney, "127.0.0.1:6543" },
-		
+	{		
+		{ EVENT, mock_event_read, &alan },
 		{ EVENT, mock_read, &alan, MOCK_DATA("ho\n") },
 		{ EVENT, mock_write, &alan, MOCK_DATA("ho\n") },
-		{ EVENT, mock_read, &alan, MOCK_ERROR(EAGAIN) },	},
-	{
+		{ EVENT, mock_read, &alan, MOCK_ERROR(EAGAIN) },
 		{ EVENT, mock_event_read, &barney },
 		{ EVENT, mock_read, &barney, MOCK_DATA("hi, how are you?\n") },
 		{ EVENT, mock_write, &barney, MOCK_DATA("hi, how are you?\n") },
@@ -81,7 +86,7 @@ static const mock_event_queue client_events = {
 	},
 	{
 		{ EVENT, mock_event_read, &barney },
-		{ EVENT, mock_read, &barney, MOCK_ERROR(ECONNRESET) },
+		{ EVENT, mock_read, &barney, MOCK_ERROR(ECONNRESET) },	// barney resets
 		{ EVENT, mock_close, &barney },
 	},
 	{
@@ -149,25 +154,17 @@ static int echo_data(io_poller *poller, connection *conn, const char *readbuf, s
 	printf("wrote %d chars to %d\n", (int)*wlen, conn->io.fd);
 	conn->chars_processed += *wlen;
 	if(rlen < *wlen || err == EAGAIN || err == EWOULDBLOCK) {
-		// When we can't perform a full write, it means that
-		// the remote isn't accepting data fast enough.  To
-		// handle this situation correctly, we would have to
-		// hang onto the unwritten data until an IO_WRITE
-		// event tells us that there's more room for us to
-		// finish the write.  This is an exercise left for
-		// the reader.  :)  (it's not a hard fix, but it
-		// does require a per-connection buffer to store
-		// the unwritten data).
-
-		err = 0; // not a fatal error; we'll just drop the data.
-		// Note that even though we can't write, we continue
-		// reading until the input buffer is exhausted.
+					// the remote didn't accept all the data we wrote.
+		err = 0; 	// not a fatal error; we'll just drop the data.
+					// a real program would enable write events and then
+					// wait until it's notified that space is available.
 	}
 	
 	return err;
 }
 
 
+// data is available on the connection
 void connection_read_proc(io_poller *poller, io_atom *ioa)
 {
 	connection *conn = io_resolve_parent(ioa, connection, io);
@@ -177,7 +174,11 @@ void connection_read_proc(io_poller *poller, io_atom *ioa)
         
 	do {
 		err = io_read(poller, ioa, readbuf, sizeof(readbuf), &rlen);
+		assert(err ? !rlen : 1);
+		assert(rlen ? !err : 1);
 		if(!err) {
+			printf("Received %d bytes on %d, echoing <<<%.*s>>>\n",
+					(int)rlen, ioa->fd, (int)rlen, readbuf);
 			err = echo_data(poller, conn, readbuf, rlen, &wlen);
 			if(err) break;
 		}
@@ -198,42 +199,19 @@ void connection_read_proc(io_poller *poller, io_atom *ioa)
 		io_close(poller, &conn->io);
 		free(conn);
 	}
-
-	// It's true, we perform at least two reads every time data is
-	// available!  Doesn't these extra system calls hurt performance?
-	//
-	// Well, POSIX is unfortunate...  They allow an interrupted read
-	// or write to return either EINTR and 0 bytes (that's OK by me)
-	// OR return no error and some partial amount of data.  Therefore
-	// you can't loop on while(len == sizeof(readbuf)) because while,
-	// in theory, another read after a partial read should
-	// always return EAGAIN), a signal could cause
-	// the loop to exit before you've exhausted the input buffer.
-	// Tou will receive no more IO_READ events until more data arrives
-	// (which may not happen if the remote is waiting for you to
-	// to send a reply to the data that's already in the input buffer).
-	// And your connection will hang.
-	//
-	// SUMMARY: just keep reading until you get EAGAIN or EWOULDBLOCK
-	// (those // are the same on Linux).  Don't try to optimize the
-	// redundant read away.
-	//
-	// I think the solution is to perform a single read into a gigantic
-	// buffer each time through the event loop.  If the read returned
-	// data, then you mark that fd to be explicitly read the next time
-	// through the event loop (probably after all other fds are handled).
-	// Just swap the fd in and out of a doubly linked list.
 }
 
 
 void connection_write_proc(io_poller *poller, io_atom *ioa)
 {
 	// When this event arrives it indicates that space in the write
-	// buffer has been freed up so continue writing.
+	// buffer has been freed up so we can continue writing.  In this
+	// app, though, we just abandon data that can't be written so we
+	// never actually turn on write events.
 }
 
 
-// called for every incoming connection request
+// called for every incoming connection request on listening sockets
 void accept_proc(io_poller *poller, io_atom *ioa)
 {
 	connection *conn;
@@ -249,7 +227,8 @@ void accept_proc(io_poller *poller, io_atom *ioa)
 	}
 
 	if(io_accept(poller, &conn->io, connection_read_proc, connection_write_proc, IO_READ, ioa, &remote) < 0) {
-		perror("connecting to remote");
+		fprintf(stderr, "%s while accepting connection from %s:%d\n",
+				 strerror(errno), inet_ntoa(remote.addr), remote.port);
 		return;
 	}
 
@@ -258,7 +237,37 @@ void accept_proc(io_poller *poller, io_atom *ioa)
 }
 
 
-// given an addr:port string, opens a listening socket
+// given an addr:port string, opens an outgoing connection to that host.
+void initiate_connection(io_poller *poller, const char *str)
+{
+    socket_addr remote = { { htonl(INADDR_ANY) }, DEFAULT_PORT };
+	connection *conn;
+	const char *err;
+
+    conn = malloc(sizeof(connection));
+	if(!conn) {
+		perror("allocating connection");
+		exit(1);
+	}
+
+	err = io_parse_address(str, &remote);
+	if(err) {
+		fprintf(stderr, err, str);
+		exit(1);
+	}
+
+	if(io_connect(poller, &conn->io, connection_read_proc, connection_write_proc, remote, IO_READ) < 0) {
+		fprintf(stderr, "%s while connecting to %s:%d\n",
+				 strerror(errno), inet_ntoa(remote.addr), remote.port);
+		exit(1);
+	}
+
+	printf("Connection opened to %s:%d, given fd %d\n",
+		inet_ntoa(remote.addr), remote.port, conn->io.fd);
+}
+
+
+// given an addr:port string, opens a listening socket on that address.
 void create_listener(io_poller *poller, const char *str)
 {
 	io_atom *atom;
@@ -291,25 +300,114 @@ void create_listener(io_poller *poller, const char *str)
 }
 
 
+static void init_poller(io_poller *poller, io_poller_type type)
+{
+	if(poller->poller_type != POLLER_NONE) {
+		// init_poller has already been called.  Make sure that we don't
+		// try to switch from a mock to a non-mock poller or vice versa.
+		if( (type != POLLER_MOCK && poller->poller_type != POLLER_MOCK) ||
+			(type == POLLER_MOCK && poller->poller_type == POLLER_MOCK)
+		) {
+			return;	// poller already created, nothing to do.
+		}
+		
+		fprintf(stderr, "You may either run --mock or --client/--server, not both.\n");
+		exit(1);
+	}
+	
+	io_poller_init(poller, type);
+	if(!poller->poller_name) {
+		printf("Could not start the poller!\n");
+		exit(1);
+	}
+	
+	printf("Using %s to poll.\n", poller->poller_name);
+}
+
+
+static void process_args(io_poller *poller, int argc, char **argv)
+{
+    char buf[256], *cp;
+    int optidx, i, c;
+
+	optidx = 0;
+	static struct option longopts[] = {
+		// name, has_arg (1=reqd,2=opt), flag, val
+		{"mock", 1, 0, 'm'},
+		{"client", 1, 0, 'c'},
+		{"server", 1, 0, 's'},
+		{0, 0, 0, 0},
+	};
+
+	// dynamically create the option string from the long
+	// options.  Why oh why doesn't glibc do this for us???
+	cp = buf;
+	for(i=0; longopts[i].name; i++) {
+		if(!longopts[i].flag) {
+			*cp++ = longopts[i].val;
+			if(longopts[i].has_arg > 0) *cp++ = ':';
+			if(longopts[i].has_arg > 1) *cp++ = ':';
+		}
+	}
+	*cp++ = '\0';
+
+	for(;;) {
+		c = getopt_long(argc, argv, buf, longopts, &optidx);
+		if(c == -1) break;
+		
+		switch(c) {
+        case 'c':
+        	init_poller(poller, POLLER_ANY);
+        	initiate_connection(poller, optarg);
+            break;
+
+		case 'm':
+			init_poller(poller, POLLER_MOCK);
+			if(optarg[0] == 'c') opt_mock_client++;
+			else if(optarg[0] == 's') opt_mock_server++;
+			else { fprintf(stderr, "Specify either 'client' or 'server', not '%s'.\n", optarg); exit(1); }
+			break;
+
+		case 's':
+			init_poller(poller, POLLER_ANY);
+			create_listener(poller, optarg);
+			break;
+			
+		case '?':
+			// getopt_long already printed the error message
+			exit(1);
+		}
+	}
+}
+
+
 int main(int argc, char **argv)
 {
 	io_poller poller;
 	
-	io_poller_init(&poller, POLLER_MOCK);
+	// clear poller_type because init_poller uses it to see if the poller has been initialized.
+	poller.poller_type = POLLER_NONE;
+	
+	// Process the command line arguments (which causes an appropriate poller to be created).
+	process_args(&poller, argc, argv);
 	if(!poller.poller_name) {
-		printf("Could not start the mock poller!\n");
+		// poller was not initialized probably because no arguments were specified.
+		fprintf(stderr, "You must specify --client, --server or --mock.\n");
 		exit(1);
 	}
 
-	printf("Using %s to poll.\n", poller.poller_name);
-	
-	//io_mock_set_events(&poller, &client_events);	
-	io_mock_set_events(&poller, &server_events);
+	// If user wants to run mock tests, we need to install them.
+	if(opt_mock_client) {
+		io_mock_set_events(&poller, &client_events);
+		// the test script uses two outgoing connections
+		initiate_connection(&poller, "127.0.0.1:6543");
+		initiate_connection(&poller, "127.0.0.1:6543");
+	} else if(opt_mock_server) {
+		io_mock_set_events(&poller, &server_events);
+		create_listener(&poller, "127.0.0.1:6543");
+	}
 
-	// We just hard-code the address and port when testing.
-	// (it must match the addr and port in the mock event stream)
-	create_listener(&poller, "127.0.0.1:6543");
-
+	// Run the main event loop.
 	for(;;) {
 		if(io_wait(&poller, MAXINT) < 0) {
 			perror("io_wait");
@@ -320,5 +418,3 @@ int main(int argc, char **argv)
 	io_poller_dispose(&poller);
 	return 0;
 }
-
-

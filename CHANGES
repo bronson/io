@@ -1,3 +1,4 @@
+TODO
 - Split the static mock events into a mocker api and a static mocker.  That allows us to read mock events from files later.
   Mostly it allows us to isolate the awful hacks in the current code behind a clean API.
 - Get rid of IO_READ and IO_WRITE?  I think it's a good idea.
@@ -7,6 +8,7 @@
   Figure out how to sniff compiler #defines to figure out what pollers are available.
 - Normalize errors returned from calls.  
 - iotest and socktest need to print an error if write data was discarded.
+- Fix the io_parse_address routine -- its return value currently sucks rocks.
 - Pass MAXFDS and MAXEVENTS to io_init.  That should normalize all the maxfd junk lying around.
 - Add an io-config utility much like mutest-config
 - I don't like the macros to convert io_del into io_select_del.  Anything better we can do?
@@ -17,6 +19,7 @@
     Of course... probably want to leave the ipv4 hooks around too, since not everything is ipv6 yet?
 
 
+DONE:
 * Added io_close.  This allows mock fds to close without closing, say, stdout.
 * Made io_socket_connect_fd private again.  To replace its usage, create an automatic
   io_atom on the stack, call io_socket_connect with that atom, then copy the atom

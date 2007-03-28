@@ -49,6 +49,7 @@
 struct io_poller;
 
 typedef enum {
+	POLLER_NONE = 0x00,
 	POLLER_SELECT= 0x01,
 	POLLER_POLL = 0x02,
 	POLLER_EPOLL = 0x04,
@@ -58,12 +59,12 @@ typedef enum {
 	POLLER_ANY = 0xFF,		///< chooses the fastest poller for the platform
 	POLLER_LINUX = POLLER_SELECT | POLLER_POLL | POLLER_EPOLL,
 	POLLER_BSD = POLLER_SELECT | POLLER_POLL | POLLER_KQUEUE
-} poller_type;
+} io_poller_type;
 
 
 // Believe you me, this table is *almost* enough to drive me to port this to C++.
 // (biggest problem with doing that is having to babysit C++'s memory management)
-struct poller_funcs {
+struct io_poller_funcs {
 	int (*dispose)(struct io_poller *poller);
 	int (*fd_check)(struct io_poller *poller);
 	int (*add)(struct io_poller *poller, io_atom *atom, int flags);
@@ -81,8 +82,9 @@ struct poller_funcs {
 
 
 struct io_poller {
-	struct poller_funcs funcs;
+	struct io_poller_funcs funcs;
 	const char *poller_name;
+	io_poller_type poller_type;
 	union {
 		// TODO: the select struct is WAY bigger than epoll...
 		// Should not put them in a union with each other!
@@ -108,7 +110,7 @@ struct io_poller {
 typedef struct io_poller io_poller;
 
 
-int io_poller_init(io_poller *poller, poller_type type);
+int io_poller_init(io_poller *poller, io_poller_type type);
 #define io_poller_dispose(a) (*(a)->funcs.dispose)((io_poller*)&(a)->poller_data)
 #define io_fd_check(a)		(*(a)->funcs.fd_check)((io_poller*)&(a)->poller_data)
 #define io_add(a,b,c)		(*(a)->funcs.add)((io_poller*)&(a)->poller_data,b,c)

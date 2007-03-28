@@ -261,6 +261,10 @@ int io_socket_listen(io_poller *poller, io_atom *io, io_proc read_proc, socket_a
  *     if(result) {
  *         fprintf(stderr, result, spec);
  *     }
+ * 
+ * TODO: this error reporting by returning a format string flat out sucks.
+ * Fix it!!  Maybe make this routine return an int like all others that
+ * can be passed to a strerror-alike routine to produce a readable string?
  */
 
 char* io_parse_address(const char *spec, socket_addr *sock)

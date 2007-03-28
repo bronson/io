@@ -470,6 +470,14 @@ int io_mock_wait(io_mock_poller *poller, unsigned int timeout)
 }
 
 
+static void mark_event_used(io_mock_poller *poller, const mock_event *event)
+{
+	int event_no = get_event_no(poller, event);
+	
+	poller->events_handled_in_last_set |= 1<<event_no;
+}
+
+
 // Ensures that an event hasn't been handled yet, then marks the event as handled.
 static void using_event(struct io_mock_poller *poller,
 		const mock_event *event, mock_event_tracker *storage, const char *func)
@@ -480,7 +488,7 @@ static void using_event(struct io_mock_poller *poller,
 		die(poller, "%s: event %d has already been handled!", func, event_no);
 	}
 
-	poller->events_handled_in_last_set |= 1<<event_no;
+	mark_event_used(poller, event);
 	
 	// link this event on top of the queue of in-progress events.
 	storage->event = event;
@@ -583,7 +591,7 @@ static int is_error_event(io_mock_poller *poller, const mock_event *event, const
 		// We'll just mark this event used right now.  That way the caller
 		// doesn't have to worry about anything more; it can return the error
 		// immediately.
-		poller->events_handled_in_last_set |= 1<<get_event_no(poller,event);
+		mark_event_used(poller, event);
 		
 		info(poller, "%s: returning error %d (%s) as specified by %s", func,
 				event->len, strerror(event->len), describe_event(poller, event));
@@ -617,8 +625,8 @@ int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, s
 	
 	// special-case 0-length reads, which mean that the remote has closed.
 	if(event->data && event->len == 0) {
-		// This is just the IO Atom library's convention, but it makes
-		// sockets behave just like regular pipes.
+		// IO Atom library's convention: normal close returns EPIPE.
+		mark_event_used(poller, event);
 		return EPIPE;
 	}
 	
@@ -697,8 +705,6 @@ int io_mock_connect(struct io_poller *base_poller, io_atom *io, io_proc read_pro
 	}
 	
 	assert(event->remote->type == mock_socket);
-	assert(poller->mockfds[fd].remote->type == mock_socket);
-	assert(!poller->mockfds[fd].is_listener);
 	
 	err = is_error_event(poller, event, func);
 	if(err) return err;
@@ -847,10 +853,10 @@ int io_mock_close(struct io_poller *base_poller, io_atom *io)
 
 	using_event(poller, event, &storage, func);
 
+	info(poller, "%s: closing fd %d", func, io->fd);
+
 	mock_fd_reset(mfd);
 	io->fd = -1;
-
-	info(poller, "func: closing fd %d", io->fd);
 	
 	done_with_event(poller, &storage);
 
