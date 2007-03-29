@@ -138,7 +138,7 @@ void accept_proc(io_poller *poller, io_atom *ioa)
 		return;
 	}
 
-	if(io_accept(poller, &conn->io, connection_read_proc, connection_write_proc, IO_READ, ioa, &remote) < 0) {
+	if(io_accept(poller, &conn->io, connection_read_proc, connection_write_proc, IO_READ, ioa, &remote)) {
 		perror("connecting to remote");
 		return;
 	}
@@ -171,7 +171,7 @@ void create_listener(io_poller *poller, const char *str)
 		}
 	}
 
-	if(io_listen(poller, atom, accept_proc, sock) < 0) {
+	if(io_listen(poller, atom, accept_proc, sock)) {
 		perror("listen");
 		exit(1);
 	}

@@ -156,7 +156,7 @@ static const mock_event_queue error_events = {
 	},	
 	{
 		{ EVENT, mock_event_read, &listener },
-		{ EVENT, mock_accept, &listener, MOCK_ERROR(ECONNABORTED) },
+		{ EVENT, mock_accept, &listener, "127.0.0.1:6543", ECONNABORTED },
 	},
 	{
 		{ EVENT, mock_finished }		// null terminator
@@ -209,7 +209,7 @@ void connection_read_proc(io_poller *poller, io_atom *ioa)
 			printf("connection closed by remote on fd %d\n",
 				conn->io.fd);
 		} else {
-			printf("error %s on fd %d, closing!\n", strerror(errno),
+			printf("error %s on fd %d, closing!\n", strerror(err),
 				conn->io.fd);
 		}
 
@@ -238,6 +238,7 @@ void accept_proc(io_poller *poller, io_atom *ioa)
 {
 	connection *conn;
 	socket_addr remote;
+	int err;
 
 	// since the accepter only has IO_READ anyway, there's no need to
 	// check the flags param.
@@ -248,9 +249,10 @@ void accept_proc(io_poller *poller, io_atom *ioa)
 		return;
 	}
 
-	if(io_accept(poller, &conn->io, connection_read_proc, connection_write_proc, IO_READ, ioa, &remote) < 0) {
+	err = io_accept(poller, &conn->io, connection_read_proc, connection_write_proc, IO_READ, ioa, &remote);
+	if(err) {
 		fprintf(stderr, "%s while accepting connection from %s:%d\n",
-				 strerror(errno), inet_ntoa(remote.addr), remote.port);
+				 strerror(err), inet_ntoa(remote.addr), remote.port);
 		return;
 	}
 
@@ -260,11 +262,12 @@ void accept_proc(io_poller *poller, io_atom *ioa)
 
 
 // given an addr:port string, opens an outgoing connection to that host.
-void initiate_connection(io_poller *poller, const char *str)
+int initiate_connection(io_poller *poller, const char *str)
 {
     socket_addr remote = { { htonl(INADDR_ANY) }, DEFAULT_PORT };
 	connection *conn;
-	const char *err;
+	const char *errstr;
+	int err;
 
     conn = malloc(sizeof(connection));
 	if(!conn) {
@@ -272,29 +275,33 @@ void initiate_connection(io_poller *poller, const char *str)
 		exit(1);
 	}
 
-	err = io_parse_address(str, &remote);
-	if(err) {
-		fprintf(stderr, err, str);
+	errstr = io_parse_address(str, &remote);
+	if(errstr) {
+		fprintf(stderr, errstr, str);
 		exit(1);
 	}
 
-	if(io_connect(poller, &conn->io, connection_read_proc, connection_write_proc, remote, IO_READ) < 0) {
+	err = io_connect(poller, &conn->io, connection_read_proc, connection_write_proc, remote, IO_READ);
+	if(err) {
 		fprintf(stderr, "%s while connecting to %s:%d\n",
-				 strerror(errno), inet_ntoa(remote.addr), remote.port);
-		exit(1);
+				 strerror(err), inet_ntoa(remote.addr), remote.port);
+		return -1;
 	}
 
 	printf("Connection opened to %s:%d, given fd %d\n",
 		inet_ntoa(remote.addr), remote.port, conn->io.fd);
+	
+	return 0;
 }
 
 
 // given an addr:port string, opens a listening socket on that address.
-void create_listener(io_poller *poller, const char *str)
+int create_listener(io_poller *poller, const char *str)
 {
 	io_atom *atom;
 	socket_addr sock = { { htonl(INADDR_ANY) }, DEFAULT_PORT };
-	const char *err;
+	const char *errstr;
+	int err;
 
 	atom = malloc(sizeof(io_atom));
 	if(!atom) {
@@ -305,20 +312,24 @@ void create_listener(io_poller *poller, const char *str)
 	// if a string was supplied, we use it, else we just
 	// use the defaults that are already stored in sock.
 	if(str) {
-		err = io_parse_address(str, &sock);
-		if(err) {
-			fprintf(stderr, err, str);
+		errstr = io_parse_address(str, &sock);
+		if(errstr) {
+			fprintf(stderr, errstr, str);
 			exit(1);
 		}
 	}
 
-	if(io_listen(poller, atom, accept_proc, sock) < 0) {
-		perror("listen");
-		exit(1);
+	err = io_listen(poller, atom, accept_proc, sock);
+	if(err) {
+		fprintf(stderr, "io_listen on %s:%d failed: %s\n", 
+				inet_ntoa(sock.addr), sock.port, strerror(err));
+		return -1;
 	}
 	
 	printf("Opened listening socket on %s:%d, fd=%d\n",
 		inet_ntoa(sock.addr), sock.port, atom->fd );
+	
+	return 0;
 }
 
 

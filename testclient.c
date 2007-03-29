@@ -87,7 +87,7 @@ void create_connection(io_poller *poller, const char *str)
 		exit(1);
 	}
 
-	if(io_connect(poller, &conn->io, connection_read_proc, connection_write_proc, remote, IO_READ) < 0) {
+	if(io_connect(poller, &conn->io, connection_read_proc, connection_write_proc, remote, IO_READ)) {
 		perror("connecting to remote");
 		exit(1);
 	}

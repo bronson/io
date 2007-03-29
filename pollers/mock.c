@@ -232,6 +232,11 @@ static int find_event_by_socket_addr(io_mock_poller *poller, const socket_addr i
 				die(poller, "%s: event requires the address, not NULL: %s",
 						func, describe_event(poller, &poller->event_sets[i]));
 			}
+			if(poller->event_sets[i].data == &mock_error) {
+				die(poller, "%s: %s requires an address, not MOCK_ERROR.  "
+						"(you can specify an integer after the address to return an error).",
+						func, describe_event(poller, &poller->event_sets[i]));
+			}
 			errstr = io_parse_address(poller->event_sets[i].data, &tmpaddr);
 			if(errstr) {
 				die(poller, errstr, poller->event_sets[i].data);
@@ -800,7 +805,7 @@ int io_mock_accept(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 	assert(event->remote->type == mock_socket);
 	assert(mfd->remote->type == mock_socket);
 	
-	err = is_error_event(poller, event, func);
+	err = is_addressed_error_event(poller, event, func);
 	if(err) return err;
 	
 	using_event(poller, event, &storage, func);
