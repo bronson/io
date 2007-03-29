@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 {
 	io_poller poller;
 
-	io_poller_init(&poller, POLLER_ANY);
+	io_poller_init(&poller, IO_POLLER_ANY);
 	if(!poller.poller_name) {
 		printf("Could not start a poller!\n");
 		exit(1);

@@ -33,9 +33,9 @@ int io_poller_init(io_poller *poller, io_poller_type type)
 	poller->funcs.close = io_atom_close;
 
 #ifdef USE_EPOLL
-	if(type & POLLER_EPOLL) {
+	if(type & IO_POLLER_EPOLL) {
 		poller->poller_name = "epoll";
-		poller->poller_type = POLLER_EPOLL;
+		poller->poller_type = IO_POLLER_EPOLL;
 		poller->funcs.dispose = (void*)io_epoll_poller_dispose;
 		poller->funcs.fd_check = (void*)io_epoll_fd_check;
 		poller->funcs.add = (void*)io_epoll_add;
@@ -49,9 +49,9 @@ int io_poller_init(io_poller *poller, io_poller_type type)
 
 	
 #ifdef USE_POLL
-	if(type & POLLER_POLL) {
+	if(type & IO_POLLER_POLL) {
 		poller->poller_name = "poll";
-		poller->poller_type = POLLER_POLL;
+		poller->poller_type = IO_POLLER_POLL;
 		poller->funcs.dispose = (void*)io_poll_poller_dispose;
 		poller->funcs.fd_check = (void*)io_poll_fd_check;
 		poller->funcs.add = (void*)io_poll_add;
@@ -65,9 +65,9 @@ int io_poller_init(io_poller *poller, io_poller_type type)
 
 	
 #ifdef USE_SELECT
-	if(type & POLLER_SELECT) {
+	if(type & IO_POLLER_SELECT) {
 		poller->poller_name = "select";
-		poller->poller_type = POLLER_SELECT;
+		poller->poller_type = IO_POLLER_SELECT;
 		poller->funcs.dispose = (void*)io_select_poller_dispose;
 		poller->funcs.fd_check = (void*)io_select_fd_check;
 		poller->funcs.add = (void*)io_select_add;
@@ -81,9 +81,9 @@ int io_poller_init(io_poller *poller, io_poller_type type)
 	
 	
 #ifdef USE_MOCK
-	if(type & POLLER_MOCK) {
+	if(type & IO_POLLER_MOCK) {
 		poller->poller_name = "mock";
-		poller->poller_type = POLLER_MOCK;
+		poller->poller_type = IO_POLLER_MOCK;
 		poller->funcs.dispose = (void*)io_mock_poller_dispose;
 		poller->funcs.fd_check = (void*)io_mock_fd_check;
 		poller->funcs.add = (void*)io_mock_add;

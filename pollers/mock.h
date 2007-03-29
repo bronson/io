@@ -5,6 +5,11 @@
 #include "../atom.h"
 #include "../socket.h"
 
+// None of the mock tests set errno.  I don't believe they should --
+// for portability, ever application should use the function result
+// as the error code.  (this is easily changed if it turns out to
+// be a bad idea, of course)
+
 
 // mock fds are numbered from 0 .. MAX_MOCK_ATOMS-1
 #define MAX_MOCK_FDS 32

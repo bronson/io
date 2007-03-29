@@ -337,11 +337,11 @@ int create_listener(io_poller *poller, const char *str)
 // poller type is always the same.  If not, we print an error and bail.
 static void init_poller(io_poller *poller, io_poller_type type)
 {
-	if(poller->poller_type != POLLER_NONE) {
+	if(poller->poller_type != IO_POLLER_NONE) {
 		// init_poller has already been called.  Make sure that we don't
 		// try to switch from a mock to a non-mock poller or vice versa.
-		if( (type != POLLER_MOCK && poller->poller_type != POLLER_MOCK) ||
-			(type == POLLER_MOCK && poller->poller_type == POLLER_MOCK)
+		if( (type != IO_POLLER_MOCK && poller->poller_type != IO_POLLER_MOCK) ||
+			(type == IO_POLLER_MOCK && poller->poller_type == IO_POLLER_MOCK)
 		) {
 			return;	// poller already created, nothing to do.
 		}
@@ -421,17 +421,17 @@ static void process_args(io_poller *poller, int argc, char **argv)
 		
 		switch(c) {
         case 'c':
-        	init_poller(poller, POLLER_ANY);
+        	init_poller(poller, IO_POLLER_ANY);
         	initiate_connection(poller, optarg);
             break;
 
 		case 'm':
-			init_poller(poller, POLLER_MOCK);
+			init_poller(poller, IO_POLLER_MOCK);
 			prepare_mock_test(poller, optarg);
 			break;
 
 		case 's':
-			init_poller(poller, POLLER_ANY);
+			init_poller(poller, IO_POLLER_ANY);
 			create_listener(poller, optarg);
 			break;
 			
@@ -448,12 +448,12 @@ int main(int argc, char **argv)
 	io_poller poller;
 	
 	// clear poller_type because init_poller uses it to see if the poller has been initialized.
-	poller.poller_type = POLLER_NONE;
+	poller.poller_type = IO_POLLER_NONE;
 	
 	// Process the command line arguments
 	// This causes an appropriate poller to be created, mock tests to be installed, etc.
 	process_args(&poller, argc, argv);
-	if(!poller.poller_name) {
+	if(poller.poller_type == IO_POLLER_NONE) {
 		// poller was not initialized probably because no arguments were specified.
 		fprintf(stderr, "You must specify --client, --server or --mock.\n");
 		exit(1);

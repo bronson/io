@@ -18,7 +18,6 @@ TODO
 - Make socket.c IPv6 aware, http://people.redhat.com/drepper/userapi-ipv6.html
     Of course... probably want to leave the ipv4 hooks around too, since not everything is ipv6 yet?
 - io_wait is now the only call that doesn't return an error code...  (it returns the number of fds containing events)   Is this OK?
-- The mock tests don't set errno... should they?
 
 DONE:
 * Try to standardize return codes: every one returns an error code or 0 on no error.
