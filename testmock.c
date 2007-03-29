@@ -136,14 +136,32 @@ static const mock_event_queue server_events = {
 	},
 	{
 		{ EVENT, mock_event_read, &alan },
-		{ EVENT, mock_read, &alan, MOCK_ERROR(EPIPE) },		// close conn
-		{ EVENT, mock_close, &alan }
+		{ EVENT, mock_read, &alan, MOCK_ERROR(EPIPE) },		// tell conn to close
+		{ EVENT, mock_close, &alan, MOCK_ERROR(EIO) }		// but bomb out (just tests mock framework)
 	},
 	{
 		{ EVENT, mock_finished }		// null terminator
 	}
 }};
 
+
+// Ensures errors are properly handled in listen, accept and connect.
+// Above two scripts test errors from read and write.
+static const mock_event_queue error_events = {
+	MAX_EVENTS_PER_SET, {
+	{
+		{ EVENT, mock_listen, &listener, "127.0.0.1:6543" },
+		{ EVENT, mock_listen, &barney, "127.0.0.1:6544", EADDRINUSE },		// listen and connect have to specify errors like this instead of using MOCK_ERROR
+		{ EVENT, mock_connect, &alan, "127.0.0.1:6500", ECONNREFUSED },		// (since they must also specify addresses to match the connection with the event).
+	},	
+	{
+		{ EVENT, mock_event_read, &listener },
+		{ EVENT, mock_accept, &listener, MOCK_ERROR(ECONNABORTED) },
+	},
+	{
+		{ EVENT, mock_finished }		// null terminator
+	}
+}};
 
 
 static int echo_data(io_poller *poller, connection *conn, const char *readbuf, size_t rlen, size_t *wlen)
@@ -196,7 +214,11 @@ void connection_read_proc(io_poller *poller, io_atom *ioa)
 		}
 
 		// close the connection, free its memory
-		io_close(poller, &conn->io);
+		err = io_close(poller, &conn->io);
+		if(err) {
+			fprintf(stderr, "Error closing fd %d: %s\n",
+					conn->io.fd, strerror(err));
+		}
 		free(conn);
 	}
 }
@@ -295,11 +317,14 @@ void create_listener(io_poller *poller, const char *str)
 		exit(1);
 	}
 	
-	printf("Opened listening socket on %s:%d, fd=%d\n",
-		inet_ntoa(sock.addr), sock.port, atom->fd);
+//	printf("Opened listening socket on %s:%d, fd=%d\n",
+//		/*inet_ntoa(sock.addr), sock.port,*/ "1",1, atom->fd );
+	printf("%d", atom->fd);
 }
 
 
+// It's fine to call this routine multiple times, so long as the
+// poller type is always the same.  If not, we print an error and bail.
 static void init_poller(io_poller *poller, io_poller_type type)
 {
 	if(poller->poller_type != POLLER_NONE) {
@@ -322,6 +347,35 @@ static void init_poller(io_poller *poller, io_poller_type type)
 	}
 	
 	printf("Using %s to poll.\n", poller->poller_name);
+}
+
+
+static void prepare_mock_test(io_poller *poller, const char *name)
+{
+	switch(name[0]) {
+	case 'c':	// client
+		io_mock_set_events(poller, &client_events);
+		// the test script uses two outgoing connections
+		initiate_connection(poller, "127.0.0.1:6543");
+		initiate_connection(poller, "127.0.0.1:6543");
+		break;
+	
+	case 's':	// server
+		io_mock_set_events(poller, &server_events);
+		create_listener(poller, "127.0.0.1:6543");
+		break;
+
+	case 'e':	// error
+		io_mock_set_events(poller, &error_events);
+		create_listener(poller, "127.0.0.1:6543");
+		create_listener(poller, "127.0.0.1:6544");
+		initiate_connection(poller, "127.0.0.1:6500");
+		break;
+		
+	default:
+		fprintf(stderr, "Specify either 'client' or 'server', not '%s'.\n", optarg);
+		exit(1);
+	}
 }
 
 
@@ -363,9 +417,7 @@ static void process_args(io_poller *poller, int argc, char **argv)
 
 		case 'm':
 			init_poller(poller, POLLER_MOCK);
-			if(optarg[0] == 'c') opt_mock_client++;
-			else if(optarg[0] == 's') opt_mock_server++;
-			else { fprintf(stderr, "Specify either 'client' or 'server', not '%s'.\n", optarg); exit(1); }
+			prepare_mock_test(poller, optarg);
 			break;
 
 		case 's':
@@ -388,23 +440,13 @@ int main(int argc, char **argv)
 	// clear poller_type because init_poller uses it to see if the poller has been initialized.
 	poller.poller_type = POLLER_NONE;
 	
-	// Process the command line arguments (which causes an appropriate poller to be created).
+	// Process the command line arguments
+	// This causes an appropriate poller to be created, mock tests to be installed, etc.
 	process_args(&poller, argc, argv);
 	if(!poller.poller_name) {
 		// poller was not initialized probably because no arguments were specified.
 		fprintf(stderr, "You must specify --client, --server or --mock.\n");
 		exit(1);
-	}
-
-	// If user wants to run mock tests, we need to install them.
-	if(opt_mock_client) {
-		io_mock_set_events(&poller, &client_events);
-		// the test script uses two outgoing connections
-		initiate_connection(&poller, "127.0.0.1:6543");
-		initiate_connection(&poller, "127.0.0.1:6543");
-	} else if(opt_mock_server) {
-		io_mock_set_events(&poller, &server_events);
-		create_listener(&poller, "127.0.0.1:6543");
 	}
 
 	// Run the main event loop.

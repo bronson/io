@@ -228,6 +228,10 @@ static int find_event_by_socket_addr(io_mock_poller *poller, const socket_addr i
 	num_previous_events = 0;
 	for(i=0; i<poller->event_set_size; i++) {
 		if(poller->event_sets[i].event_type == restrict_type) {
+			if(!poller->event_sets[i].data) {
+				die(poller, "%s: event requires the address, not NULL: %s",
+						func, describe_event(poller, &poller->event_sets[i]));
+			}
 			errstr = io_parse_address(poller->event_sets[i].data, &tmpaddr);
 			if(errstr) {
 				die(poller, errstr, poller->event_sets[i].data);
@@ -582,20 +586,41 @@ int io_mock_dispatch(struct io_poller *base_poller)
 }
 
 
+static int post_error_event(io_mock_poller *poller, const mock_event *event, const char *func)
+{
+	// We'll just mark this event used right now.  That way the caller
+	// doesn't have to worry about anything more; it can return the error
+	// immediately.
+	mark_event_used(poller, event);
+	
+	info(poller, "%s: returning error %d (%s) as specified by %s", func,
+			event->len, strerror(event->len), describe_event(poller, event));
+	
+	return event->len;
+}
+
+
 // Returns true if this event specifies that an error should be returned.
 static int is_error_event(io_mock_poller *poller, const mock_event *event, const char *func)
 {
 	// Current convention is that if data is NULL, then the len gives
 	// the error code.  That might change so always use is_error_event.
 	if(event->data == &mock_error) {
-		// We'll just mark this event used right now.  That way the caller
-		// doesn't have to worry about anything more; it can return the error
-		// immediately.
-		mark_event_used(poller, event);
-		
-		info(poller, "%s: returning error %d (%s) as specified by %s", func,
-				event->len, strerror(event->len), describe_event(poller, event));
-		return event->len;
+		return post_error_event(poller, event, func);
+	}
+	
+	return 0;
+}
+
+
+// connect and listen need to treat errors slightly differently since you still need to
+// specify an address (to associate them with a particular connection).
+static int is_addressed_error_event(io_mock_poller *poller, const mock_event *event, const char *func)
+{
+	// Len is 0 unless you want to mock an error.  It's otherwise unused
+	// since the calls just use 0-terminated strings to specify the address.
+	if(event->len != 0) {
+		return post_error_event(poller, event, func);
 	}
 	
 	return 0;
@@ -699,6 +724,7 @@ int io_mock_connect(struct io_poller *base_poller, io_atom *io, io_proc read_pro
 	const mock_event *event;
 	int fd, err;
 	
+	io_atom_init(io, -1, NULL, NULL);
 	err = find_event_by_socket_addr(poller, remote, mock_connect, &event, func);
 	if(err < 0) {
 		return err;
@@ -706,7 +732,7 @@ int io_mock_connect(struct io_poller *base_poller, io_atom *io, io_proc read_pro
 	
 	assert(event->remote->type == mock_socket);
 	
-	err = is_error_event(poller, event, func);
+	err = is_addressed_error_event(poller, event, func);
 	if(err) return err;
 
 	using_event(poller, event, &storage, func);
@@ -754,6 +780,7 @@ int io_mock_accept(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 	socket_addr toaddr, fromaddr;
 	char buf[512];
 	
+	io_atom_init(io, -1, NULL, NULL);
 	err = find_mockfd_by_atom(poller, listener, &mfd, func);
 	if(err != 0) return err;
 	
@@ -806,16 +833,17 @@ int io_mock_listen(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 	const mock_event *event;
 	int fd, err;
 	
+	io_atom_init(io, -1, NULL, NULL);
 	err = find_event_by_socket_addr(poller, local, mock_listen, &event, func);
 	if(err < 0) {
 		return err;
 	}
-
 	assert(event->remote->type == mock_socket);	
-	using_event(poller, event, &storage, func);
 
-	err = is_error_event(poller, event, func);
+	err = is_addressed_error_event(poller, event, func);
 	if(err) return err;
+
+	using_event(poller, event, &storage, func);
 
 	fd = mock_open(poller);
 	assert(!poller->mockfds[fd].is_listener);  // if this is true then we'd already called io_listen on this atom?!
@@ -887,8 +915,8 @@ int io_mock_set_events(io_poller *base_poller, const mock_event_queue *events)
 		}
 	}
 	
-	info(poller, "Adding events %p comprising %d steps.  Max events per step is %d.",
-			events, n_events, events->max_events_per_set);
+	info(poller, "Adding %d sets of events.  Max events per set is %d.",
+			n_events, events->max_events_per_set);
 	
 	poller->event_set_size = events->max_events_per_set;
 	poller->event_sets = &events->events[0][0];
