@@ -50,7 +50,10 @@ int io_epoll_init(io_epoll_poller *poller)
 
 int io_epoll_poller_dispose(io_epoll_poller *poller)
 {
-	return close(poller->epfd);
+	if(close(poller->epfd)) {
+		return errno ? errno : -1;
+	}
+	return 0;
 }
 
 
@@ -82,7 +85,10 @@ int io_epoll_add(io_epoll_poller *poller, io_atom *atom, int flags)
 	struct epoll_event event;
 	event.data.ptr = atom;
 	event.events = get_events(flags);
-	return epoll_ctl(poller->epfd, EPOLL_CTL_ADD, atom->fd, &event);
+	if(epoll_ctl(poller->epfd, EPOLL_CTL_ADD, atom->fd, &event)) {
+		return errno ? errno : -1;
+	}
+	return 0;
 }
 
 
@@ -91,7 +97,10 @@ int io_epoll_set(io_epoll_poller *poller, io_atom *atom, int flags)
 	struct epoll_event event;
 	event.data.ptr = atom;
 	event.events = get_events(flags);
-	return epoll_ctl(poller->epfd, EPOLL_CTL_MOD, atom->fd, &event);
+	if(epoll_ctl(poller->epfd, EPOLL_CTL_MOD, atom->fd, &event)) {
+		return errno ? errno : -1;
+	}
+	return 0;
 }
 
 
@@ -99,7 +108,10 @@ int io_epoll_remove(io_epoll_poller *poller, io_atom *atom)
 {
 	// Linux has been able to handle a NULL event only since 2.6.9.
 	struct epoll_event event;
-	return epoll_ctl(poller->epfd, EPOLL_CTL_DEL, atom->fd, &event);
+	if(epoll_ctl(poller->epfd, EPOLL_CTL_DEL, atom->fd, &event)) {
+		return errno ? errno : -1;
+	}
+	return 0;
 }
 
 

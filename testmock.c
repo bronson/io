@@ -317,9 +317,8 @@ void create_listener(io_poller *poller, const char *str)
 		exit(1);
 	}
 	
-//	printf("Opened listening socket on %s:%d, fd=%d\n",
-//		/*inet_ntoa(sock.addr), sock.port,*/ "1",1, atom->fd );
-	printf("%d", atom->fd);
+	printf("Opened listening socket on %s:%d, fd=%d\n",
+		inet_ntoa(sock.addr), sock.port, atom->fd );
 }
 
 

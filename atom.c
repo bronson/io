@@ -72,11 +72,10 @@ int io_atom_read(struct io_poller *poller, io_atom *io, char *buf, size_t cnt, s
  *
  * @returns 0 on success, the error code if there was a failure.
  *
- * A return value of -EPIPE means that the remote peer closed its
- * connection.  HOWEVER, your app will already have received a
- * SIGPIPE, so you'll have to block this signal if you want to
- * handle the -EPIPE return code (probably a very good idea).
- *
+ * A return value of EPIPE means that the remote peer closed its
+ * connection.  If it's a real EPIPE, your app will already have
+ * received a SIGPIPE.
+ * 
  * We treat handle the remote resetting the connection the same as
  * it closing the connection.  So, when errno is ECONNRESET, this
  * routine will return EPIPE to tell you that the remote is gone.
@@ -120,7 +119,10 @@ int io_atom_close(struct io_poller *poller, io_atom *io)
 	io_remove(poller, io);
 	fd = io->fd;
 	io->fd = -1;
-	return close(fd);
+	if(close(fd)) {
+		return errno ? errno : -1;
+	}
+	return 0;
 }
 
 

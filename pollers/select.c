@@ -81,10 +81,10 @@ int io_select_add(io_select_poller *poller, io_atom *atom, int flags)
 	int fd = atom->fd;
 
 	if(fd < 0 || fd >= FD_SETSIZE) {
-		return -ERANGE;
+		return ERANGE;
 	}
 	if(poller->connections[fd]) {
-		return -EALREADY;
+		return EALREADY;
 	}
 
 	poller->connections[fd] = atom;
@@ -102,10 +102,10 @@ int io_select_set(io_select_poller *poller, io_atom *atom, int flags)
 	int fd = atom->fd;
 
 	if(fd < 0 || fd >= FD_SETSIZE) {
-		return -ERANGE;
+		return ERANGE;
 	}
 	if(!poller->connections[fd]) {
-		return -EEXIST;
+		return EEXIST;
 	}
 
 	install(poller, fd, flags);
@@ -119,10 +119,10 @@ int io_select_remove(io_select_poller *poller, io_atom *atom)
 	int fd = atom->fd;
 
 	if(fd < 0 || fd >= FD_SETSIZE) {
-		return -ERANGE;
+		return ERANGE;
 	}
 	if(!poller->connections[fd]) {
-		return -EALREADY;
+		return EALREADY;
 	}
 
 	install(poller, fd, 0);

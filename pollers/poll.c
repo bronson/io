@@ -85,13 +85,13 @@ int io_poll_add(io_poll_poller *poller, io_atom *atom, int flags)
 	int index, avail_fd;
 	
 	if(atom->fd < 0) {
-		return -ERANGE;
+		return ERANGE;
 	}
 	
 	index = find_fd(poller, atom->fd, &avail_fd);
 	if(index >= 0) {
 		// this fd is already being monitored!
-		return -EALREADY;
+		return EALREADY;
 	}
 	
 	if(avail_fd == -1) {
@@ -111,28 +111,30 @@ int io_poll_add(io_poll_poller *poller, io_atom *atom, int flags)
 }
 
 
-static int poll_find(io_poll_poller *poller, int fd)
-{	
-	int index;
+static int poll_find(io_poll_poller *poller, int fd, int *index)
+{
+	int err;
 	
 	if(fd < 0) {
-		return -ERANGE;
+		return ERANGE;
 	}
 	
-	index = find_fd(poller, fd, NULL);
+	err = find_fd(poller, fd, NULL);
 	if(index < 0) {
-		return -EEXIST;
+		return EEXIST;
 	}
 	
-	return index;
+	*index = err;
+	return 0;
 }
 
 
 int io_poll_set(io_poll_poller *poller, io_atom *atom, int flags)
 {
-	int index = poll_find(poller, atom->fd);
-	if(index < 0) {
-		return index;
+	int index;
+	int err = poll_find(poller, atom->fd, &index);
+	if(err) {
+		return err;
 	}
 	
 	poller->pfds[index].events = get_events(flags);
@@ -142,9 +144,10 @@ int io_poll_set(io_poll_poller *poller, io_atom *atom, int flags)
 
 int io_poll_remove(io_poll_poller *poller, io_atom *atom)
 {
-	int index = poll_find(poller, atom->fd);
-	if(index < 0) {
-		return index;
+	int index;
+	int err = poll_find(poller, atom->fd, &index);
+	if(err) {
+		return err;
 	}
 	
 	poller->pfds[index].fd = -1;

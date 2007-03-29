@@ -6,7 +6,7 @@ TODO
 - Rename poller.h to io.h -- it's the .h file that should be included by everything.
 - The way you select a poller now (-DUSE_EPOLL, -DUSE_POLL, -DUSE_SELECT) is wack.
   Figure out how to sniff compiler #defines to figure out what pollers are available.
-- Normalize errors returned from calls.  
+- Normalize errors returned from calls.  Ensure all pollers return well-defined, predictable errors.
 - iotest and socktest need to print an error if write data was discarded.
 - Fix the io_parse_address routine -- its return value currently sucks rocks.
 - Pass MAXFDS and MAXEVENTS to io_init.  That should normalize all the maxfd junk lying around.
@@ -17,9 +17,11 @@ TODO
 - TODO TODO add unit tests (maybe) and lots of functional tests (definitely!)
 - Make socket.c IPv6 aware, http://people.redhat.com/drepper/userapi-ipv6.html
     Of course... probably want to leave the ipv4 hooks around too, since not everything is ipv6 yet?
-
+- io_wait is now the only call that doesn't return an error code...  (it returns the number of fds containing events)   Is this OK?
 
 DONE:
+* Try to standardize return codes: every one returns an error code or 0 on no error.
+  (except for io_wait, which still returns the # of events that need to be dispatched).
 * Added io_close.  This allows mock fds to close without closing, say, stdout.
 * Made io_socket_connect_fd private again.  To replace its usage, create an automatic
   io_atom on the stack, call io_socket_connect with that atom, then copy the atom

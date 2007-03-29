@@ -164,27 +164,20 @@ int io_socket_accept(io_poller *poller, io_atom *io, io_proc read_proc, io_proc 
             // see if we receive a connection.
             continue;
         }
-        if(errno == EAGAIN || errno == EWOULDBLOCK) {
-            // No pending connections are present (socket is nonblocking).
-            return -1;
-        }
-
-        // Probably there is a network error pending for this
-        // connection (already!).  Should probably just ignore it...?
-        return -1;
+        return errno ? errno : -1;
     }
 
     // Excellent.  We managed to connect to the remote socket.
     if(set_nonblock(io->fd) < 0) {
         close(io->fd);
-        return -1;
+        return errno ? errno : -1;
     }
 
 	io_atom_init(io, io->fd, read_proc, write_proc);
     err = io_add(poller, io, flags);
 	if(err < 0) {
         close(io->fd);
-        return -1;
+        return err;
     }
 
     if(remote) {
@@ -192,7 +185,7 @@ int io_socket_accept(io_poller *poller, io_atom *io, io_proc read_proc, io_proc 
         remote->port = (int)ntohs(pin.sin_port);
     }
 
-    return io->fd;
+    return 0;
 }
 
 
