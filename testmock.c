@@ -107,6 +107,10 @@ static const mock_event_queue client_events = {
 
 // You can disable an event by setting it to mock_nop.  All other events
 // in the set will still be handled.
+// It is definitely legal to have an empty event set.  This is the equivalent
+// of io_wait returning due to a timeout or an event on some other fd.
+// You would do this to test your application's ability to perform housekeeping
+// on fds that aren't directly involved in events currently being handled.
 
 static const mock_event_queue server_events = {
 	MAX_EVENTS_PER_SET, {

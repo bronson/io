@@ -657,8 +657,10 @@ int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, s
 	
 	// special-case 0-length reads, which mean that the remote has closed.
 	if(event->data && event->len == 0) {
-		// IO Atom library's convention: normal close returns EPIPE.
+		info(poller, "%s: returning EPIPE (0-length read means EOF) as specified by %s", func,
+				describe_event(poller, event));
 		mark_event_used(poller, event);
+		// IO Atom library's convention: normal close returns EPIPE.
 		return EPIPE;
 	}
 	
