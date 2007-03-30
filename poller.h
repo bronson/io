@@ -23,6 +23,8 @@
 #include "atom.h"
 #include "socket.h"
 
+#ifndef POLLER_H
+#define POLLER_H
 
 #if !(defined(USE_SELECT) || defined(USE_POLL) || defined(USE_EPOLL))
 // lowest common denominator, available on all platforms
@@ -125,3 +127,4 @@ int io_poller_init(io_poller *poller, io_poller_type type);
 #define io_listen(a,io,rp,l)          (*(a)->funcs.listen)(a,io,rp,l)
 #define io_close(a,io)      (*(a)->funcs.close)(a,io)
 
+#endif

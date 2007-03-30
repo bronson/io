@@ -4,6 +4,8 @@
 // Uses kqueue to retrieve IO Atom events.
 // TODO: VERY UNFINISHED!!  (needs to be rewritten anyway because we've switched to thread-safety and the multi poller)
 
+#ifdef USE_KQUEUE
+
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -149,3 +151,4 @@ int io_kqueue_wait(int timeout)
 	return num;
 }
 
+#endif

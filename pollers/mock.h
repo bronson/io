@@ -5,6 +5,9 @@
 #include "../atom.h"
 #include "../socket.h"
 
+#ifndef MOCK_H
+#define MOCK_H
+
 // None of the mock tests set errno.  I don't believe they should --
 // for portability, ever application should use the function result
 // as the error code.  (this is easily changed if it turns out to
@@ -162,4 +165,6 @@ typedef struct mock_event_queue {
 
 
 int io_mock_set_events(struct io_poller *poller, const mock_event_queue *events);
+
+#endif
 

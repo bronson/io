@@ -18,6 +18,8 @@
 #define IO_ATOM_H
 
 #include <sys/types.h>
+#include <errno.h>
+
 
 /// Flag, tells if we're interested in read events.
 #define IO_READ 0x01

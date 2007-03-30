@@ -12,6 +12,7 @@
 // able to order the events in the script to exactly match the events
 // as they occur in the program.
 
+#ifdef USE_MOCK
 
 #include <assert.h>
 #include <stdio.h>
@@ -19,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+
 #include "../poller.h"
 
 
@@ -932,3 +934,5 @@ int io_mock_set_events(io_poller *base_poller, const mock_event_queue *events)
 	
 	return 0;
 }
+
+#endif

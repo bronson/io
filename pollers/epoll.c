@@ -4,6 +4,7 @@
 //
 // Uses epoll to retrieve IO Atom events.
 
+#ifdef USE_EPOLL
 
 #include <unistd.h>
 #include <errno.h>
@@ -158,3 +159,4 @@ int io_epoll_dispatch(struct io_poller *base_poller)
     return 0;
 }
 
+#endif
