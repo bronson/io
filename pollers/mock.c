@@ -723,40 +723,6 @@ int io_mock_write(struct io_poller *base_poller, struct io_atom *io, const char 
 }
 
 
-int io_mock_connect(struct io_poller *base_poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags)
-{
-	static const char *func = "io_connect";
-	io_mock_poller *poller = &base_poller->poller_data.mock;
-	mock_event_tracker storage;
-	const mock_event *event;
-	int fd, err;
-	
-	io_atom_init(io, -1, NULL, NULL);
-	err = find_event_by_socket_addr(poller, remote, mock_connect, &event, func);
-	if(err < 0) {
-		return err;
-	}
-	
-	assert(event->remote->type == mock_socket);
-	
-	err = is_addressed_error_event(poller, event, func);
-	if(err) return err;
-
-	using_event(poller, event, &storage, func);
-	
-	fd = mock_open(poller);
-	io_atom_init(io, fd, read_proc, write_proc);
-	mock_fd_install(poller, fd, io, event->remote, flags, 0);
-	
-	info(poller, "%s: opened fd %d to %s:%d",
-			func, fd, inet_ntoa(remote.addr), remote.port);
-
-	done_with_event(poller, &storage);
-	
-	return 0;
-}
-
-
 void parse_socket_address(io_mock_poller *poller, socket_addr *saddr, const char *str)
 {
 	const char *errstr;
@@ -773,6 +739,52 @@ void parse_socket_address(io_mock_poller *poller, socket_addr *saddr, const char
 	if(saddr->port == -1) {
 		die(poller, "port number is required but one wasn't found in %s!", str);
 	}
+}
+
+
+int io_mock_connect(struct io_poller *base_poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags)
+{
+	static const char *func = "io_connect";
+	io_mock_poller *poller = &base_poller->poller_data.mock;
+	mock_event_tracker storage;
+	const mock_event *event;
+	socket_addr tmpaddr;
+	int fd, err;
+	
+	io_atom_init(io, -1, NULL, NULL);
+	err = find_event_by_socket_addr(poller, remote, mock_connect, &event, func);
+	if(err < 0) {
+		return err;
+	}
+	
+	assert(event->remote->type == mock_socket);
+	
+	err = is_addressed_error_event(poller, event, func);
+	if(err) return err;
+
+	using_event(poller, event, &storage, func);
+
+	// quick sanity check to ensure that the originating and destination
+	// addresses are not the same (since the code can't currently retrieve
+	// the originating address of the socket, this is only academic for now).
+	parse_socket_address(poller, &tmpaddr, event->remote->source_address);
+	if((tmpaddr.addr.s_addr == remote.addr.s_addr) && (tmpaddr.port == remote.port)) {
+		die(poller, "%s: event's originating address %s:%d needs to be different from its destination address %s:%d for %s", func,
+				inet_ntoa(tmpaddr.addr), tmpaddr.port,
+				inet_ntoa(remote.addr), remote.port,
+				describe_event(poller,event));
+	}
+	
+	fd = mock_open(poller);
+	io_atom_init(io, fd, read_proc, write_proc);
+	mock_fd_install(poller, fd, io, event->remote, flags, 0);
+	
+	info(poller, "%s: opened fd %d to %s:%d",
+			func, fd, inet_ntoa(remote.addr), remote.port);
+
+	done_with_event(poller, &storage);
+	
+	return 0;
 }
 
 
@@ -820,7 +832,15 @@ int io_mock_accept(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 	if(remote) {
 		*remote = fromaddr;
 	}
-
+	
+	// sanity check: make sure the source and destination addresses aren't the same.
+	if((fromaddr.addr.s_addr == toaddr.addr.s_addr) && (fromaddr.port == toaddr.port)) {
+		die(poller, "%s: event source address %s:%d needs to be different from its destination address %s:%d for %s", func,
+				inet_ntoa(fromaddr.addr), fromaddr.port,
+				inet_ntoa(toaddr.addr), toaddr.port,
+				describe_event(poller,event));
+	}
+	
 	// hack to get around inet_ntoa's use of a static buffer...
 	strncpy(buf, inet_ntoa(toaddr.addr), sizeof(buf));
 	buf[sizeof(buf)-1] = '\0';
@@ -857,7 +877,7 @@ int io_mock_listen(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 	// addresses are the same (this is only true for listening sockets).
 	parse_socket_address(poller, &tmpaddr, event->remote->source_address);
 	if((tmpaddr.addr.s_addr != local.addr.s_addr) || (tmpaddr.port != local.port)) {
-		die(poller, "Event listen address %s:%d needs to match its connection address %s:%d for %s",
+		die(poller, "%s: event listen address %s:%d needs to match its connection address %s:%d for %s", func,
 				inet_ntoa(tmpaddr.addr), tmpaddr.port,
 				inet_ntoa(local.addr), local.port,
 				describe_event(poller,event));

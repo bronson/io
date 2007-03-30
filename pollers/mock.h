@@ -143,7 +143,7 @@ typedef struct mock_event {
 	const char *file;
 	int line;
 	mock_event_type event_type;
-	const mock_connection *remote;	// right now this is just the address of the remote system.  in the future this will need to include the pathname of a file or folder that's been opened.
+	const mock_connection *remote;	// TODO: actually, I think this is always the originating address of the connection!  anyhow: right now this is just the address of the remote system.  in the future this will need to include the pathname of a file or folder that's been opened.
 	const char *data;	// on connect or accept, the address to connect to as a string
 	int len;			// on connect or accept, the port to connect to
 } mock_event;
