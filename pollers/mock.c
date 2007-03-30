@@ -838,6 +838,7 @@ int io_mock_listen(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 	io_mock_poller *poller = &base_poller->poller_data.mock;
 	mock_event_tracker storage;
 	const mock_event *event;
+	socket_addr tmpaddr;
 	int fd, err;
 	
 	io_atom_init(io, -1, NULL, NULL);
@@ -851,6 +852,16 @@ int io_mock_listen(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 	if(err) return err;
 
 	using_event(poller, event, &storage, func);
+	
+	// quick sanity check to ensure that the originating and destination
+	// addresses are the same (this is only true for listening sockets).
+	parse_socket_address(poller, &tmpaddr, event->remote->source_address);
+	if((tmpaddr.addr.s_addr != local.addr.s_addr) || (tmpaddr.port != local.port)) {
+		die(poller, "Event listen address %s:%d needs to match its connection address %s:%d for %s",
+				inet_ntoa(tmpaddr.addr), tmpaddr.port,
+				inet_ntoa(local.addr), local.port,
+				describe_event(poller,event));
+	}
 
 	fd = mock_open(poller);
 	assert(!poller->mockfds[fd].is_listener);  // if this is true then we'd already called io_listen on this atom?!
