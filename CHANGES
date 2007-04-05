@@ -1,4 +1,5 @@
 TODO
+- Added mock hooks for readv and writev but they're definitely not debugged.
 - Rename socket_addr to socket_address.
 - Split the static mock events into a mocker api and a static mocker.  That allows us to read mock events from files later.
   Mostly it allows us to isolate the awful hacks in the current code behind a clean API.

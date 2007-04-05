@@ -634,6 +634,26 @@ static int is_addressed_error_event(io_mock_poller *poller, const mock_event *ev
 }
 
 
+static int find_io_event(io_mock_poller *poller, io_atom *io, mock_event_type type, mockfd **mfdp, const mock_event **evp, const char *func)
+{
+	int err;
+	
+	err = find_mockfd_by_atom(poller, io, mfdp, func);
+	if(err != 0) return err;
+	
+	// You'll never call io_read or io_write on a listening socket.
+	assert(!(**mfdp).is_listener);
+	
+	err = find_event_by_mockfd(poller, *mfdp, type, evp, func);
+	if(err != 0) return err;
+
+	err = is_error_event(poller, *evp, func);
+	if(err) return err;
+	
+	return 0;
+}
+
+
 int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, size_t cnt, size_t *readlen)
 {
 	static const char *func = "io_read";
@@ -645,15 +665,8 @@ int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, s
 	
 	*readlen = 0;
 	
-	err = find_mockfd_by_atom(poller, io, &mfd, func);
+	err = find_io_event(poller, io, mock_read, &mfd, &event, func);
 	if(err != 0) return err;
-	assert(!mfd->is_listener);
-	
-	err = find_event_by_mockfd(poller, mfd, mock_read, &event, func);
-	if(err != 0) return err;
-
-	err = is_error_event(poller, event, func);
-	if(err) return err;
 	
 	// special-case 0-length reads, which mean that the remote has closed.
 	if(event->data && event->len == 0) {
@@ -677,7 +690,69 @@ int io_mock_read(struct io_poller *base_poller, struct io_atom *io, char *buf, s
 	info(poller, "%s: read %d bytes from fd %d", func, cnt, mfd->io->fd);
 
 	memcpy(buf, event->data, cnt);
+	
 	*readlen = cnt;
+	done_with_event(poller, &storage);
+	return 0;
+}
+
+
+static void copy_readv_data(io_mock_poller *poller, const mock_event *event, const struct iovec *vec, int cnt, int fd, const char *func)
+{
+	const char *cp;
+	int len, remaining;
+	int i;
+
+	cp = event->data;
+	remaining = event->len;
+	
+	if(cnt < 1) {
+		die(poller, "%s: cnt was %d, an illegal value!", func, cnt);
+	}
+	
+	for(i=0; i<cnt && remaining > 0; i++) {
+		len = vec[i].iov_len;
+		if(len > remaining) {
+			len = remaining;
+		}
+		
+		memcpy(vec[i].iov_base, cp, len);
+		cp += vec[i].iov_len;
+		remaining -= len;
+	}
+	
+	info(poller, "%s: read %d bytes from fd %d into %d vectors", func, event->len, fd, i+1);
+}
+
+
+int io_mock_readv(struct io_poller *base_poller, struct io_atom *io, const struct iovec *vec, int cnt, size_t *readlen)
+{
+	static const char *func = "io_readv";
+	io_mock_poller *poller = &base_poller->poller_data.mock;
+	mock_event_tracker storage;
+	mockfd *mfd;
+	const mock_event *event;
+	int err;
+	
+	*readlen = 0;
+		
+	err = find_io_event(poller, io, mock_readv, &mfd, &event, func);
+	if(err != 0) return err;
+
+	// special-case 0-length reads, which mean that the remote has closed.  (this is also true for readv, right?)
+	if(event->data && event->len == 0) {
+		info(poller, "%s: returning EPIPE (0-length read means EOF) as specified by %s", func,
+				describe_event(poller, event));
+		mark_event_used(poller, event);
+		// IO Atom library's convention: normal close returns EPIPE.
+		return EPIPE;
+	}
+	
+	using_event(poller, event, &storage, func);
+
+	copy_readv_data(poller, event, vec, cnt, mfd->io->fd, func);
+	
+	*readlen = event->len;
 	done_with_event(poller, &storage);
 	return 0;
 }
@@ -694,16 +769,9 @@ int io_mock_write(struct io_poller *base_poller, struct io_atom *io, const char 
 
 	*wrlen = 0;
 	
-	err = find_mockfd_by_atom(poller, io, &mfd, func);
+	err = find_io_event(poller, io, mock_write, &mfd, &event, func);
 	if(err != 0) return err;
-	assert(!mfd->is_listener);
 	
-	err = find_event_by_mockfd(poller, mfd, mock_write, &event, func);
-	if(err != 0) return err;
-
-	err = is_error_event(poller, event, func);
-	if(err) return err;
-
 	using_event(poller, event, &storage, func);
 
 	if(cnt > event->len) {
@@ -719,6 +787,69 @@ int io_mock_write(struct io_poller *base_poller, struct io_atom *io, const char 
 	info(poller, "%s: wrote %d bytes to fd %d",
 			func, event->len, mfd->io->fd);
 	
+	*wrlen = event->len;
+	done_with_event(poller, &storage);
+	return 0;	
+}
+
+
+static void verify_writev_data(io_mock_poller *poller, const mock_event *event, const struct iovec *vec, int cnt, int fd, const char *func)
+{
+	const char *cp;
+	int len, remaining, total;
+	int i;
+
+	total = 0;
+	cp = event->data;
+	remaining = event->len;
+	
+	if(cnt < 1) {
+		die(poller, "%s: cnt was %d, an illegal value!", func, cnt);
+	}
+	
+	for(i=0; i<cnt && remaining > 0; i++) {
+		len = vec[i].iov_len;
+		if(len > remaining) {
+			len = remaining;
+		}
+		
+		if(memcmp(vec[i].iov_base, cp, len)) {
+			die(poller, "%s: vector[%d]'s event data was different.  evt=%s buf=%s",
+					func, i, cp, vec[i].iov_base);
+		}
+		
+		cp += vec[i].iov_len;
+		remaining -= len;
+		total += len;
+	}
+	
+	if(remaining != 0 || i != cnt) {
+		die(poller, "%s: vector only provided %d bytes of data but we expected %d!",
+				func, total, event->len);
+	}
+	
+	info(poller, "%s: verified %d bytes written to fd %d from %d vectors", func, event->len, fd, i+1);
+}
+
+
+int io_mock_writev(struct io_poller *base_poller, struct io_atom *io, const struct iovec *vec, int cnt, size_t *wrlen)
+{
+	static const char *func = "io_write";
+	io_mock_poller *poller = &base_poller->poller_data.mock;
+	mock_event_tracker storage;
+	mockfd *mfd;
+	const mock_event *event;
+	int err;
+
+	*wrlen = 0;
+	
+	err = find_io_event(poller, io, mock_writev, &mfd, &event, func);
+	if(err != 0) return err;
+	
+	using_event(poller, event, &storage, func);
+	
+	verify_writev_data(poller, event, vec, cnt, mfd->io->fd, func);
+
 	*wrlen = event->len;
 	done_with_event(poller, &storage);
 	return 0;	

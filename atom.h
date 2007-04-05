@@ -29,6 +29,7 @@
 
 struct io_atom;  	// forward decl
 struct io_poller;	// forward decl
+struct iovec;
 
 
 /**
@@ -130,12 +131,14 @@ typedef struct io_atom io_atom;
  */
 
 int io_atom_read(struct io_poller *poller, io_atom *io, char *buf, size_t cnt, size_t *len);
+int io_atom_readv(struct io_poller *poller, io_atom *io, const struct iovec *vec, int cnt, size_t *readlen);
 
 
 /** Writes data to a file or socket
  */
 
 int io_atom_write(struct io_poller *poller, io_atom *io, const char *buf, size_t cnt, size_t *len);
+int io_atom_writev(struct io_poller *poller, io_atom *io, const struct iovec *vec, int cnt, size_t *wrlen);
 
 /** Removes the atom from the poller and closes its file or socket.
  */

@@ -26,7 +26,9 @@ int io_poller_init(io_poller *poller, io_poller_type type)
 	// These are handled by identical routines in all pollers
 	// except for the mock poller.
 	poller->funcs.read = io_atom_read;
+	poller->funcs.readv = io_atom_readv;
 	poller->funcs.write = io_atom_write;
+	poller->funcs.writev = io_atom_writev;
 	poller->funcs.connect = io_socket_connect;
 	poller->funcs.accept = io_socket_accept;
 	poller->funcs.listen = io_socket_listen;
@@ -93,7 +95,9 @@ int io_poller_init(io_poller *poller, io_poller_type type)
 		poller->funcs.dispatch = (void*)io_mock_dispatch;
 		
 		poller->funcs.read = io_mock_read;
+		poller->funcs.readv = io_mock_readv;
 		poller->funcs.write = io_mock_write;
+		poller->funcs.writev = io_mock_writev;
 		poller->funcs.connect = io_mock_connect;
 		poller->funcs.accept = io_mock_accept;
 		poller->funcs.listen = io_mock_listen;

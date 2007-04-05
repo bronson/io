@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/uio.h>	// for readv/writev
+
 #include "atom.h"
 #include "poller.h"
 
@@ -65,6 +67,37 @@ int io_atom_read(struct io_poller *poller, io_atom *io, char *buf, size_t cnt, s
 }
 
 
+int io_atom_readv(struct io_poller *poller, io_atom *io, const struct iovec *vec, int cnt, size_t *readlen)
+{
+    ssize_t len;
+
+	*readlen = 0;
+    do {
+        len = readv(io->fd, vec, cnt);
+    } while (errno == EINTR);   // stupid posix
+
+    if(len > 0) {
+        // success!
+		*readlen = len;
+        return 0;
+	}
+
+    if(len == 0) {
+		// the remote has closed the connection.
+		return EPIPE;
+    }
+
+    // an error ocurred during the read
+    if(errno == EAGAIN || errno == EWOULDBLOCK) {
+        // turns out there was nothing to read after all?  weird.
+        // there was no error, but nothing to process either.
+        return 0;
+    } 
+
+    return errno ? errno : -1;
+}
+
+
 /**
  * Writes to the given atom.
  *
@@ -91,6 +124,34 @@ int io_atom_write(struct io_poller *poller, io_atom *io, const char *buf, size_t
     *wrlen = 0;
     do {
         len = write(io->fd, buf, cnt);
+    } while(errno == EINTR);
+
+    if(len > 0) {
+        *wrlen = len;
+        return 0;
+    } 
+
+    if(len < 0) {
+	 	/*
+        if(errno == ECONNRESET) {
+            return EPIPE;
+        }
+		*/
+        return errno ? errno : -1;
+    }
+
+    // nothing was written but there was no error??
+    return 0;
+}
+
+
+int io_atom_writev(struct io_poller *poller, io_atom *io, const struct iovec *vec, int cnt, size_t *wrlen)
+{
+    ssize_t len;
+
+    *wrlen = 0;
+    do {
+        len = writev(io->fd, vec, cnt);
     } while(errno == EINTR);
 
     if(len > 0) {

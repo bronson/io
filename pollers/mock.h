@@ -65,7 +65,9 @@ int io_mock_wait(io_mock_poller *poller, unsigned int timeout);
 int io_mock_dispatch(struct io_poller *poller);
 
 int io_mock_read(struct io_poller *poller, struct io_atom *io, char *buf, size_t cnt, size_t *readlen);
+int io_mock_readv(struct io_poller *poller, struct io_atom *io, const struct iovec *vec, int cnt, size_t *readlen);
 int io_mock_write(struct io_poller *poller, struct io_atom *io, const char *buf, size_t cnt, size_t *wrlen);
+int io_mock_writev(struct io_poller *poller, struct io_atom *io, const struct iovec *vec, int cnt, size_t *wrlen);
 int io_mock_connect(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags);
 int io_mock_accept(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote);
 int io_mock_listen(struct io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local);
@@ -121,7 +123,9 @@ typedef enum {
 	mock_connect,		///> application will attempt to make a connection
 	mock_accept,		///> send a connection request to an application that called io_listen
 	mock_read,     		///> tells mock that the application will read some data without an event being posted (not sure why)
+	mock_readv,
 	mock_write,			///> tells mock that the application will write some data even though no write event was posted (this is very common; most data is written in response to read events)
+	mock_writev,
 	mock_close,			///> tells mock that the application will close the associated connection.
 	
 	// these cause events to be generated

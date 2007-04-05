@@ -49,6 +49,8 @@
 
 
 struct io_poller;
+struct iovec;
+
 
 typedef enum {
 	IO_POLLER_NONE = 0x00,
@@ -75,7 +77,9 @@ struct io_poller_funcs {
 	int (*wait)(struct io_poller *poller, unsigned int timeout);
 	int (*dispatch)(struct io_poller *poller);
 	int (*read)(struct io_poller *poller, struct io_atom *io, char *buf, size_t cnt, size_t *readlen);
+	int (*readv)(struct io_poller *poller, struct io_atom *io, const struct iovec *vec, int cnt, size_t *readlen);
 	int (*write)(struct io_poller *poller, struct io_atom *io, const char *buf, size_t cnt, size_t *wrlen);
+	int (*writev)(struct io_poller *poller, struct io_atom *io, const struct iovec *vec, int cnt, size_t *wrlen);
 	int (*connect)(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags);
 	int (*accept)(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote);
 	int (*listen)(struct io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local);
@@ -121,7 +125,9 @@ int io_poller_init(io_poller *poller, io_poller_type type);
 #define io_wait(a,b)		(*(a)->funcs.wait)((io_poller*)&(a)->poller_data,b)
 #define io_dispatch(a)		(*(a)->funcs.dispatch)(a)
 #define io_read(a,io,buf,cnt,rdlen)   (*(a)->funcs.read)(a,io,buf,cnt,rdlen)
+#define io_readv(a,io,vec,rdlen)   (*(a)->funcs.read)(a,io,vec,rdlen)
 #define io_write(a,io,buf,cnt,wrlen)  (*(a)->funcs.write)(a,io,buf,cnt,wrlen)
+#define io_writev(a,io,vec,cnt,wrlen)  (*(a)->funcs.write)(a,io,vec,cnt,wrlen)
 #define io_connect(a,io,rp,wp,ra,f)   (*(a)->funcs.connect)(a,io,rp,wp,ra,f)
 #define io_accept(a,io,rp,wp,f,l,r)   (*(a)->funcs.accept)(a,io,rp,wp,f,l,r)
 #define io_listen(a,io,rp,l)          (*(a)->funcs.listen)(a,io,rp,l)
