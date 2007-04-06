@@ -56,12 +56,9 @@ int io_atom_read(struct io_poller *poller, io_atom *io, char *buf, size_t cnt, s
 		return EPIPE;
     }
 
-    // an error ocurred during the read
-    if(errno == EAGAIN || errno == EWOULDBLOCK) {
-        // turns out there was nothing to read after all?  weird.
-        // there was no error, but nothing to process either.
-        return 0;
-    } 
+#if EAGAIN != EWOULDBLOCK
+    if(errno == EWOULDBLOCK) errno  = EAGAIN;
+#endif
 
     return errno ? errno : -1;
 }
@@ -87,12 +84,9 @@ int io_atom_readv(struct io_poller *poller, io_atom *io, const struct iovec *vec
 		return EPIPE;
     }
 
-    // an error ocurred during the read
-    if(errno == EAGAIN || errno == EWOULDBLOCK) {
-        // turns out there was nothing to read after all?  weird.
-        // there was no error, but nothing to process either.
-        return 0;
-    } 
+#if EAGAIN != EWOULDBLOCK
+    if(errno == EWOULDBLOCK) errno  = EAGAIN;
+#endif
 
     return errno ? errno : -1;
 }
@@ -129,18 +123,16 @@ int io_atom_write(struct io_poller *poller, io_atom *io, const char *buf, size_t
     if(len > 0) {
         *wrlen = len;
         return 0;
-    } 
+    }
 
     if(len < 0) {
-	 	/*
-        if(errno == ECONNRESET) {
-            return EPIPE;
-        }
-		*/
+#if EAGAIN != EWOULDBLOCK
+        if(errno == EWOULDBLOCK) errno  = EAGAIN;
+#endif
         return errno ? errno : -1;
     }
 
-    // nothing was written but there was no error??
+    // nothing was written but there was no error?!  This is an OS error right?
     return 0;
 }
 
@@ -160,15 +152,13 @@ int io_atom_writev(struct io_poller *poller, io_atom *io, const struct iovec *ve
     } 
 
     if(len < 0) {
-	 	/*
-        if(errno == ECONNRESET) {
-            return EPIPE;
-        }
-		*/
+#if EAGAIN != EWOULDBLOCK
+        if(errno == EWOULDBLOCK) errno  = EAGAIN;
+#endif
         return errno ? errno : -1;
     }
 
-    // nothing was written but there was no error??
+    // nothing was written but there was no error?!
     return 0;
 }
 

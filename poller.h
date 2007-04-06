@@ -127,7 +127,7 @@ int io_poller_init(io_poller *poller, io_poller_type type);
 #define io_read(a,io,buf,cnt,rdlen)   (*(a)->funcs.read)(a,io,buf,cnt,rdlen)
 #define io_readv(a,io,vec,rdlen)   (*(a)->funcs.read)(a,io,vec,rdlen)
 #define io_write(a,io,buf,cnt,wrlen)  (*(a)->funcs.write)(a,io,buf,cnt,wrlen)
-#define io_writev(a,io,vec,cnt,wrlen)  (*(a)->funcs.write)(a,io,vec,cnt,wrlen)
+#define io_writev(a,io,vec,cnt,wrlen)  (*(a)->funcs.writev)(a,io,vec,cnt,wrlen)
 #define io_connect(a,io,rp,wp,ra,f)   (*(a)->funcs.connect)(a,io,rp,wp,ra,f)
 #define io_accept(a,io,rp,wp,f,l,r)   (*(a)->funcs.accept)(a,io,rp,wp,f,l,r)
 #define io_listen(a,io,rp,l)          (*(a)->funcs.listen)(a,io,rp,l)

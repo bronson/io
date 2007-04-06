@@ -1,5 +1,5 @@
 TODO
-- Added mock hooks for readv and writev but they're definitely not debugged.
+- Added mock hooks for readv and writev but they're definitely not debugged.  Shake them out.
 - Rename socket_addr to socket_address.
 - Split the static mock events into a mocker api and a static mocker.  That allows us to read mock events from files later.
   Mostly it allows us to isolate the awful hacks in the current code behind a clean API.
@@ -23,6 +23,7 @@ TODO
 - Returning EPIPE for 0-length reads is pretty stupid.  But we have to return SOME error.  Is there a better alternative?
 
 DONE:
+* io_read and io_write return EAGAIN again.  Now you should never see err==0 && len==0.
 * Try to standardize return codes: every one returns an error code or 0 on no error.
   (except for io_wait, which still returns the # of events that need to be dispatched).
 * Added io_close.  This allows mock fds to close without closing, say, stdout.
