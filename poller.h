@@ -133,5 +133,10 @@ int io_poller_init(io_poller *poller, io_poller_type type);
 #define io_listen(a,io,rp,l)          (*(a)->funcs.listen)(a,io,rp,l)
 #define io_close(a,io)      (*(a)->funcs.close)(a,io)
 
+#ifdef USE_MOCK
 #define io_is_mock(a)	((a)->poller_type == IO_POLLER_MOCK)
+#else
+#define io_is_mock(a)	0
+#endif
+
 #endif
