@@ -170,9 +170,15 @@ int io_atom_close(struct io_poller *poller, io_atom *io)
 	io_remove(poller, io);
 	fd = io->fd;
 	io->fd = -1;
+	
+	if(fd < 0) {
+		return EBADF;
+	}
+
 	if(close(fd)) {
 		return errno ? errno : -1;
 	}
+	
 	return 0;
 }
 
