@@ -21,6 +21,8 @@ TODO
     Of course... probably want to leave the ipv4 hooks around too, since not everything is ipv6 yet?
 - io_wait is now the only call that doesn't return an error code...  (it returns the number of fds containing events)   Is this OK?
 - Returning EPIPE for 0-length reads is pretty stupid.  But we have to return SOME error.  Is there a better alternative?
+- Change the name of this project to something less ambiguous.  "evio"?  "io-atom"?
+
 
 DONE:
 * io_read and io_write return EAGAIN again.  Now you should never see err==0 && len==0.

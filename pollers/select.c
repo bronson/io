@@ -9,6 +9,8 @@
 // TODO: should probably make thread-safe by passing a global
 // context everywhere?  This is pretty far in the future...
 
+#include "../poller.h"
+
 #ifdef USE_SELECT
 
 #include <stdlib.h>
@@ -18,18 +20,15 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "../poller.h"
-
-
 // Pass the file descriptor that you'll be listening and accepting on.
 
 int io_select_init(io_select_poller *poller)
 {
 	poller->max_fd = 0;
-	
+
 	FD_ZERO(&poller->fd_read);
 	FD_ZERO(&poller->fd_write);
-	
+
 	return 0;
 }
 
@@ -92,7 +91,7 @@ int io_select_add(io_select_poller *poller, io_atom *atom, int flags)
 	if(fd > poller->max_fd) {
 		poller->max_fd = fd;
 	}
-	
+
 	return 0;
 }
 
@@ -143,7 +142,7 @@ int io_select_remove(io_select_poller *poller, io_atom *atom)
 
 
 /** Waits for events.  See io_dispatch to dispatch the events.
- * 
+ *
  * @param timeout The maximum amount of time we should wait in
  * milliseconds.  MAXINT is special-cased to mean forever.
  *
@@ -194,7 +193,7 @@ int io_select_dispatch(struct io_poller *base_poller)
     if(poller->cnt_fd <= 0) {
     	return 0;
     }
-    
+
     max = poller->max_fd;
     for(i=0; i <= max; i++) {
     	atom = poller->connections[i];
@@ -205,7 +204,7 @@ int io_select_dispatch(struct io_poller *base_poller)
         	(*atom->write_proc)(base_poller, atom);
         }
     }
-    
+
     return 0;
 }
 

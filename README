@@ -1,7 +1,6 @@
-                         
-						 
-						     
-						   IO Atom
+
+
+                             IO Atom
 
                   unified edge-triggered polling
 
@@ -10,8 +9,16 @@
 This library aims to make event-driven programming easy on any
 common architecture.
 
-Here's a description of the API:
 
+GOALS
+
+- Zero memory management (or, you manage memory however you like, we don't
+  allocate or free anything at all)
+- Easily embeddable into any app.
+- Frickin fast.
+
+
+API
 
 Note that the select and poll pollers are level-triggered because their
 underlying calls are level-triggered.  All other pollers are edge-triggered.
@@ -58,6 +65,11 @@ the events an atom is interested in use io_set.
 POLL FOR EVENTS
 
 To get events, use something like this for your main loop:
+
+    if(io_poller_init(&poller, IO_POLLER_ANY) < 0) {
+        perror("io_init");
+        exit(1);
+    }
 
 	for(;;) {
 		if(io_wait(&poller, MAXINT) < 0) {
