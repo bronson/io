@@ -82,7 +82,7 @@ struct io_poller_funcs {
 	int (*writev)(struct io_poller *poller, struct io_atom *io, const struct iovec *vec, int cnt, size_t *wrlen);
 	int (*connect)(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags);
 	int (*accept)(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote);
-	int (*listen)(struct io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local);
+	int (*listen)(struct io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local, int reuse_addr);
 	int (*close)(struct io_poller *poller, io_atom *io);
 };
 
@@ -130,7 +130,7 @@ int io_poller_init(io_poller *poller, io_poller_type type);
 #define io_writev(a,io,vec,cnt,wrlen)  (*(a)->funcs.writev)(a,io,vec,cnt,wrlen)
 #define io_connect(a,io,rp,wp,ra,f)   (*(a)->funcs.connect)(a,io,rp,wp,ra,f)
 #define io_accept(a,io,rp,wp,f,l,r)   (*(a)->funcs.accept)(a,io,rp,wp,f,l,r)
-#define io_listen(a,io,rp,l)          (*(a)->funcs.listen)(a,io,rp,l)
+#define io_listen(a,io,rp,l,ru)          (*(a)->funcs.listen)(a,io,rp,l,ru)
 #define io_close(a,io)      (*(a)->funcs.close)(a,io)
 
 #ifdef USE_MOCK

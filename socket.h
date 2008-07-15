@@ -66,9 +66,11 @@ int io_socket_accept(struct io_poller *poller, io_atom *io, io_proc read_proc, i
  * @param proc The io_proc to initialize the atom with.
  * @param the local IP address and port to listen on.  Use INADDR_ANY
  * 		to get the
+ * @param reuse_addr 1 if we can reuse this socket (so you can kill the program and re-run
+ *      it immediately without having to wait for TIME_WAIT.  0 is a little more secure though.
  */
 
-int io_socket_listen(struct io_poller *poller, io_atom *io, io_proc accept_proc, socket_addr local);
+int io_socket_listen(struct io_poller *poller, io_atom *io, io_proc accept_proc, socket_addr local, int reuse_addr);
 
 
 /** Parses a string to an address suitable for use with io_socket.

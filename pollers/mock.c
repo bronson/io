@@ -985,7 +985,7 @@ int io_mock_accept(struct io_poller *base_poller, io_atom *io, io_proc read_proc
 }
 
 
-int io_mock_listen(struct io_poller *base_poller, io_atom *io, io_proc read_proc, socket_addr local)
+int io_mock_listen(struct io_poller *base_poller, io_atom *io, io_proc read_proc, socket_addr local, int reuse_addr)
 {
 	static const char *func = "io_listen";
 	io_mock_poller *poller = &base_poller->poller_data.mock;

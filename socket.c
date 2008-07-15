@@ -197,7 +197,7 @@ int io_socket_accept(io_poller *poller, io_atom *io, io_proc read_proc, io_proc 
  * @returns the new fd.
  */
 
-int io_socket_listen(io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local)
+int io_socket_listen(io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local, int reuse_addr)
 {
     struct sockaddr_in sin;
 
@@ -208,6 +208,15 @@ int io_socket_listen(io_poller *poller, io_atom *io, io_proc read_proc, socket_a
     if(set_nonblock(io->fd) < 0) {
         close(io->fd);
 		return -1;
+    }
+
+    // for debugging when app is killed, remove when this isn't an issue.
+    if(reuse_addr) {
+        int opt = 1;
+        if(setsockopt(io->fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt)) < 0) {
+            close(io->fd);
+            return -1;
+        }
     }
 
     memset(&sin, 0, sizeof(sin));

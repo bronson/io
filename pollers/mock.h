@@ -70,7 +70,7 @@ int io_mock_write(struct io_poller *poller, struct io_atom *io, const char *buf,
 int io_mock_writev(struct io_poller *poller, struct io_atom *io, const struct iovec *vec, int cnt, size_t *wrlen);
 int io_mock_connect(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, socket_addr remote, int flags);
 int io_mock_accept(struct io_poller *poller, io_atom *io, io_proc read_proc, io_proc write_proc, int flags, io_atom *listener, socket_addr *remote);
-int io_mock_listen(struct io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local);
+int io_mock_listen(struct io_poller *poller, io_atom *io, io_proc read_proc, socket_addr local, int reuse_addr);
 int io_mock_close(struct io_poller *base_poller, io_atom *io);
 
 

@@ -171,7 +171,7 @@ void create_listener(io_poller *poller, const char *str)
 		}
 	}
 
-	if(io_listen(poller, atom, accept_proc, sock)) {
+	if(io_listen(poller, atom, accept_proc, sock, 1)) {
 		perror("listen");
 		exit(1);
 	}
