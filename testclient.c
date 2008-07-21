@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <values.h>
+#include <limits.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
@@ -120,7 +120,7 @@ int main(int argc, char **argv)
 	}
 
 	for(;;) {
-		if(io_wait(&poller, MAXINT) < 0) {
+		if(io_wait(&poller, INT_MAX) < 0) {
 			perror("io_wait");
 		}
 		io_dispatch(&poller);

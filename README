@@ -72,7 +72,7 @@ To get events, use something like this for your main loop:
     }
 
 	for(;;) {
-		if(io_wait(&poller, MAXINT) < 0) {
+		if(io_wait(&poller, INT_MAX) < 0) {
 			perror("io_wait");
 		}
 		io_dispatch(&poller);

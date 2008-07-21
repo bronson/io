@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <values.h>
+#include <limits.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
@@ -173,7 +173,7 @@ void event_loop()
 	int cnt;
 	
 	for(;;) {
-		cnt = io_wait(&poller, MAXINT);
+		cnt = io_wait(&poller, INT_MAX);
 		if(cnt < 0) {
 			perror("io_wait");
 		}

@@ -7,6 +7,7 @@
 #ifdef USE_KQUEUE
 
 #include <stdio.h>
+#include <limits.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/event.h>
@@ -117,7 +118,7 @@ int io_kqueue_wait(int timeout)
 	struct timeval *tvp = &tv;
 	int num;
 
-	if(timeout == MAXINT) {
+	if(timeout == INT_MAX) {
 		tvp = NULL;
 	} else {
 		tv.tv_sec = timeout / 1000;

@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <values.h>
+#include <limits.h>
 #include <getopt.h>
 #include "poller.h"
 
@@ -465,7 +465,7 @@ int main(int argc, char **argv)
 
 	// Run the main event loop.
 	for(;;) {
-		if(io_wait(&poller, MAXINT) < 0) {
+		if(io_wait(&poller, INT_MAX) < 0) {
 			perror("io_wait");
 		}
 		io_dispatch(&poller);

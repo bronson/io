@@ -6,7 +6,7 @@
 COPTS=-g -Wall -Werror
 
 # change this to select which poller is used.
-DEFS=-DUSE_EPOLL -DUSE_MOCK
+DEFS=-DUSE_SELECT -DUSE_MOCK
 
 all: testclient testserver
 

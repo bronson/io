@@ -15,7 +15,7 @@
 
 #include <stdlib.h>
 #include <errno.h>
-#include <values.h>
+#include <limits.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -144,7 +144,7 @@ int io_select_remove(io_select_poller *poller, io_atom *atom)
 /** Waits for events.  See io_dispatch to dispatch the events.
  *
  * @param timeout The maximum amount of time we should wait in
- * milliseconds.  MAXINT is special-cased to mean forever.
+ * milliseconds.  INT_MAX is special-cased to mean forever.
  *
  * @returns the number of events to be dispatched or a negative
  * number if there was an error.  If a signal interrupted the
@@ -157,7 +157,7 @@ int io_select_wait(io_select_poller *poller, unsigned int timeout)
 	struct timeval tv;
 	struct timeval *tvp = &tv;
 
-	if(timeout == MAXINT) {
+	if(timeout == INT_MAX) {
 		tvp = NULL;
 	} else {
 		tv.tv_sec = timeout / 1000;
